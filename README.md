@@ -8,6 +8,7 @@ Tự động dịch toàn bộ mod trong modpack sang tiếng Việt chỉ với
 
 - ⚡ Dịch nhanh với đa luồng (nhiều mod song song)
 - 🔧 Bảo toàn placeholder (%s, %d, {0}...) không bị dịch sai
+- 📖 Dịch sách hướng dẫn Patchouli
 - 📋 Dịch FTB Quests (.snbt) — title, subtitle, description, text
 - ↷ Tự bỏ qua mod đã dịch rồi (tiếp tục từ chỗ dở)
 - 🗑 Tùy chọn xóa sạch và dịch lại từ đầu
@@ -29,12 +30,19 @@ Tự động dịch toàn bộ mod trong modpack sang tiếng Việt chỉ với
 
 ## 📋 FTB Quests
 
-Bản dịch quest được lưu tại thư mục `ftbquests_translated/` trong instance (không ghi đè bản gốc).
+> ⚠️ Bản dịch FTB Quests **không dùng Resource Pack** như mod thường — phải copy file thủ công vào thư mục config.
 
-Để áp dụng:
-1. Mở thư mục `ftbquests_translated/`
-2. Copy toàn bộ nội dung vào `config/ftbquests/quests/`
-3. Ghi đè file gốc khi được hỏi
+**Cách áp dụng bản dịch quest:**
+
+1. Sau khi dịch xong, mở thư mục instance của bạn
+2. Vào thư mục `ftbquests_translated/` (do Beeslater tạo ra)
+3. **Copy toàn bộ** nội dung bên trong
+4. Dán vào `config/ftbquests/quests/` — chọn **Replace** khi được hỏi
+5. Khởi động lại Minecraft
+
+> 💡 Thư mục instance thường nằm tại:
+> - CurseForge: `C:\Users\<tên>\curseforge\minecraft\Instances\<tên modpack>`
+> - Prism/MultiMC: `C:\Users\<tên>\AppData\Roaming\PrismLauncher\instances\<tên modpack>`
 
 ---
 
