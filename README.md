@@ -1,42 +1,32 @@
-# Minecraft Mod Translator
+## 🐝 Beeslater - Công cụ dịch ngôn ngữ cho Minecraft Modpack
 
-Tự động dịch ngôn ngữ cho toàn bộ mod trong modpack Minecraft.  
-Hỗ trợ Google Translate (miễn phí) và Claude AI (chất lượng cao).
+Tự động dịch toàn bộ mod trong modpack sang tiếng Việt chỉ với vài click.
 
-## Tính năng
+---
 
-- Dịch hàng loạt file `.jar` trong thư mục `mods/`
-- Hỗ trợ 6 ngôn ngữ: Tiếng Việt, Trung, Nhật, Hàn, Thái, Indonesia
-- Output ra Resource Pack dùng được ngay trong Minecraft
+## ✨ Tính năng
+- ⚡ Dịch nhanh với đa luồng (nhiều mod song song)
+- 🔧 Bảo toàn placeholder (%s, %d, {0}...) không bị dịch sai
+- 📖 Dịch sách hướng dẫn Patchouli
+- ↷ Tự bỏ qua mod đã dịch rồi (tiếp tục từ chỗ dở)
+- 🗑 Tùy chọn xóa sạch và dịch lại từ đầu
+- 🌐 Hỗ trợ ngôn ngữ: Việt
 
-## Tải về & Chạy ngay (khuyến nghị)
+---
 
-1. Vào tab **[Releases](../../releases)** → tải `MC_Mod_Translator.exe`
-2. Double-click để chạy — **không cần cài Python hay bất kỳ thứ gì thêm**
+## 📥 Cách dùng
+1. Tải file `Beeslater.exe` bên dưới
+2. Double-click chạy thẳng, không cần cài đặt
+3. Chọn thư mục modpack → nhấn **Bắt đầu dịch**
+4. Vào Minecraft → Options → Resource Packs → bật **FileTranslate** lên trên cùng
+5. Đổi ngôn ngữ trong Settings
 
-> **Cảnh báo SmartScreen của Windows:** Lần đầu chạy, Windows có thể hiện thông báo  
-> _"Windows protected your PC"_. Đây là bình thường với mọi file `.exe` chưa có chứng chỉ.  
-> Bấm **"More info" → "Run anyway"** để tiếp tục.
+> ⚠️ Nếu Windows hiện SmartScreen: nhấn **More info → Run anyway**
 
-## Cách dùng
+---
 
-1. Mở app, chọn thư mục instance CurseForge (phải chứa thư mục `mods/`)
-2. Chọn ngôn ngữ đích và dịch vụ dịch thuật
-3. Nhấn **Bắt đầu dịch**
-4. Khi xong: Minecraft → **Options → Resource Packs** → bật `VietNamese_Complete` lên trên cùng → đổi ngôn ngữ trong Settings
-
-## Claude AI (tùy chọn)
-
-Để dùng Claude AI thay Google Translate, set biến môi trường:
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-App sẽ tự load key, không cần nhập tay.
-
-## Tự build từ source
-
-Yêu cầu **Python 3.10+** — chạy `build_exe.bat` để build ra `dist\MC_Mod_Translator.exe`.
-
-## Yêu cầu hệ thống
-
-- Windows 10/11
+## 🔄 Changelog v1.1
+- Fix lỗi placeholder bị dịch sai (%s thành %5...)
+- Thêm tính năng dịch sách hướng dẫn Patchouli
+- Thêm nút Dừng lại
+- Thêm checkbox Xóa sạch dịch lại từ đầu
