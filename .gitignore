@@ -3,6 +3,7 @@ dist/
 build/
 *.spec
 *.spec.bak
+*.zip
 
 # Python cache
 __pycache__/
