@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 """
 Minecraft Mod Translator - App Windows
-Giao diện hiện đại dùng CustomTkinter
+Giao dien hien dai dung CustomTkinter
 """
 
 import customtkinter as ctk
@@ -9,8 +10,9 @@ from tkinter import filedialog
 import threading
 import zipfile
 import json
-import os
+import re
 import time
+import os
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -19,21 +21,15 @@ ctk.set_default_color_theme("blue")
 
 LANG_OPTIONS = {
     "Tiếng Việt": ("vi", "vi_vn"),
-    "Tiếng Trung": ("zh-CN", "zh_cn"),
-    "Tiếng Nhật": ("ja", "ja_jp"),
-    "Tiếng Hàn": ("ko", "ko_kr"),
-    "Tiếng Thái": ("th", "th_th"),
-    "Tiếng Indonesia": ("id", "id_id"),
 }
 
 
 def find_curseforge_path():
-    """Auto-detect CurseForge Instances folder."""
     candidates = [
-        Path.home() / "curseforge" / "minecraft" / "Instances",
-        Path.home() / "AppData" / "Roaming" / "CurseForge" / "minecraft" / "Instances",
-        Path("C:/curseforge/minecraft/Instances"),
-        Path("D:/curseforge/minecraft/Instances"),
+        Path.home() / "minecraft" / "Instances",
+        Path.home() / "AppData" / "minecraft" / "Instances",
+        Path("D:/minecraft/Instances"),
+        Path("C:/minecraft/Instances"),
     ]
     for p in candidates:
         if p.exists():
@@ -44,7 +40,11 @@ def find_curseforge_path():
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Minecraft Mod Translator")
+        self.title("Beeslater")
+        try:
+            self.iconbitmap("icon.ico")
+        except:
+            pass
         self.geometry("780x620")
         self.resizable(False, False)
         self.configure(fg_color="#0f1117")
@@ -52,29 +52,22 @@ class App(ctk.CTk):
         self.running = False
         self.total_mods = 0
         self.done_mods = 0
+        self._error_count = 0
         self._curseforge_path = find_curseforge_path()
 
         self._build_ui()
 
     def _build_ui(self):
-        # HEADER
         header = ctk.CTkFrame(self, fg_color="#161b27", corner_radius=0, height=64)
         header.pack(fill="x")
         header.pack_propagate(False)
 
         ctk.CTkLabel(
-            header, text="⛏  Minecraft Mod Translator",
+            header, text="🐝  Beeslater",
             font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
             text_color="#4fc3f7"
         ).pack(side="left", padx=24, pady=16)
 
-        ctk.CTkLabel(
-            header, text="Dịch ngôn ngữ cho mọi modpack",
-            font=ctk.CTkFont(size=12),
-            text_color="#546e7a"
-        ).pack(side="left", pady=16)
-
-        # MAIN CONTENT
         main = ctk.CTkFrame(self, fg_color="transparent")
         main.pack(fill="both", expand=True, padx=20, pady=16)
 
@@ -85,7 +78,7 @@ class App(ctk.CTk):
         right = ctk.CTkFrame(main, fg_color="transparent")
         right.pack(side="left", fill="both", expand=True)
 
-        # CỘT TRÁI
+        # COT TRAI
         self._section(left, "📁  Thư mục modpack")
         path_frame = ctk.CTkFrame(left, fg_color="#1a1f2e", corner_radius=8)
         path_frame.pack(fill="x", pady=(0, 12))
@@ -115,47 +108,32 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=13), height=38
         ).pack(fill="x", pady=(0, 12))
 
-        self._section(left, "🔧  Dịch vụ dịch thuật")
-        self.service_var = ctk.StringVar(value="Google Translate (miễn phí)")
-        ctk.CTkOptionMenu(
-            left,
-            values=["Google Translate (miễn phí)", "Claude AI (chất lượng cao)"],
-            variable=self.service_var,
-            fg_color="#1a1f2e", button_color="#1e3a5f",
-            button_hover_color="#1565c0",
-            font=ctk.CTkFont(size=13), height=38,
-            command=self.toggle_api_key
-        ).pack(fill="x", pady=(0, 8))
-
-        # API key frame — auto-fill từ env var
-        self.api_frame = ctk.CTkFrame(left, fg_color="transparent")
-        api_label_frame = ctk.CTkFrame(self.api_frame, fg_color="transparent")
-        api_label_frame.pack(fill="x")
-        ctk.CTkLabel(api_label_frame, text="API Key", font=ctk.CTkFont(size=12), text_color="#546e7a").pack(side="left")
-        env_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        if env_key:
-            ctk.CTkLabel(
-                api_label_frame, text="✓ loaded từ môi trường",
-                font=ctk.CTkFont(size=11), text_color="#4caf50"
-            ).pack(side="left", padx=(8, 0))
-        self.api_var = tk.StringVar(value=env_key)
-        ctk.CTkEntry(
-            self.api_frame, textvariable=self.api_var,
-            placeholder_text="sk-ant-...", show="*",
-            fg_color="#1a1f2e", border_color="#2a3a4a",
-            font=ctk.CTkFont(size=12), height=36
-        ).pack(fill="x", pady=(4, 0))
-
         self._section(left, "⚙️  Cài đặt nâng cao")
         adv = ctk.CTkFrame(left, fg_color="transparent")
         adv.pack(fill="x", pady=(0, 12))
 
         ctk.CTkLabel(adv, text="Mod song song:", font=ctk.CTkFont(size=12), text_color="#78909c").pack(side="left")
         self.workers_var = tk.StringVar(value="5")
-        ctk.CTkEntry(adv, textvariable=self.workers_var, width=50, height=30, fg_color="#1a1f2e", border_color="#2a3a4a", font=ctk.CTkFont(size=12)).pack(side="left", padx=(8, 16))
+        ctk.CTkEntry(adv, textvariable=self.workers_var, width=50, height=30,
+            fg_color="#1a1f2e", border_color="#2a3a4a",
+            font=ctk.CTkFont(size=12)).pack(side="left", padx=(8, 16))
+
         ctk.CTkLabel(adv, text="Batch size:", font=ctk.CTkFont(size=12), text_color="#78909c").pack(side="left")
         self.batch_var = tk.StringVar(value="50")
-        ctk.CTkEntry(adv, textvariable=self.batch_var, width=50, height=30, fg_color="#1a1f2e", border_color="#2a3a4a", font=ctk.CTkFont(size=12)).pack(side="left", padx=8)
+        ctk.CTkEntry(adv, textvariable=self.batch_var, width=50, height=30,
+            fg_color="#1a1f2e", border_color="#2a3a4a",
+            font=ctk.CTkFont(size=12)).pack(side="left", padx=8)
+
+        self.reset_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            left, text="Xóa sạch và dịch lại từ đầu",
+            variable=self.reset_var,
+            font=ctk.CTkFont(size=12),
+            text_color="#ef9a9a",
+            fg_color="#b71c1c",
+            hover_color="#7f0000",
+            checkmark_color="white"
+        ).pack(anchor="w", pady=(0, 8))
 
         self.start_btn = ctk.CTkButton(
             left, text="▶  BẮT ĐẦU DỊCH", height=46,
@@ -164,7 +142,7 @@ class App(ctk.CTk):
             corner_radius=10,
             command=self.start_translate
         )
-        self.start_btn.pack(fill="x", pady=(8, 0))
+        self.start_btn.pack(fill="x", pady=(0, 0))
 
         self.stop_btn = ctk.CTkButton(
             left, text="⏹  DỪNG LẠI", height=38,
@@ -176,7 +154,7 @@ class App(ctk.CTk):
         )
         self.stop_btn.pack(fill="x", pady=(6, 0))
 
-        # CỘT PHẢI
+        # COT PHAI
         self._section(right, "📊  Tiến trình")
 
         prog_frame = ctk.CTkFrame(right, fg_color="#1a1f2e", corner_radius=10)
@@ -185,16 +163,20 @@ class App(ctk.CTk):
         stats = ctk.CTkFrame(prog_frame, fg_color="transparent")
         stats.pack(fill="x", padx=12, pady=(10, 4))
 
-        self.mod_label = ctk.CTkLabel(stats, text="0 / 0 mod", font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
+        self.mod_label = ctk.CTkLabel(stats, text="0 / 0 mod",
+            font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
         self.mod_label.pack(side="left")
-        self.pct_label = ctk.CTkLabel(stats, text="0%", font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
+        self.pct_label = ctk.CTkLabel(stats, text="0%",
+            font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
         self.pct_label.pack(side="right")
 
-        self.progress_bar = ctk.CTkProgressBar(prog_frame, height=10, fg_color="#0d1b2a", progress_color="#1565c0", corner_radius=5)
+        self.progress_bar = ctk.CTkProgressBar(prog_frame, height=10,
+            fg_color="#0d1b2a", progress_color="#1565c0", corner_radius=5)
         self.progress_bar.pack(fill="x", padx=12, pady=(0, 10))
         self.progress_bar.set(0)
 
-        self.status_label = ctk.CTkLabel(right, text="Sẵn sàng...", font=ctk.CTkFont(size=12), text_color="#546e7a")
+        self.status_label = ctk.CTkLabel(right, text="Sẵn sàng...",
+            font=ctk.CTkFont(size=12), text_color="#546e7a")
         self.status_label.pack(anchor="w", pady=(0, 6))
 
         self._section(right, "📝  Log")
@@ -210,24 +192,17 @@ class App(ctk.CTk):
         )
         self.log_box.pack(fill="both", expand=True, padx=2, pady=2)
 
-        # Startup messages
         cf = self._curseforge_path
         if cf != str(Path.home()):
             self.log(f"✓ CurseForge instances: {cf}")
         else:
-            self.log("⚠ Không tìm thấy CurseForge, hãy Browse chọn thư mục instance thủ công.")
-        if env_key:
-            self.log("✓ Claude API Key đã load từ biến môi trường ANTHROPIC_API_KEY.")
+            self.log("⚠ Không tìm thấy CurseForge, hãy Browse chọn thư mục thủ công.")
         self.log("App sẵn sàng! Chọn thư mục instance và nhấn Bắt đầu dịch.")
 
     def _section(self, parent, text):
-        ctk.CTkLabel(parent, text=text, font=ctk.CTkFont(size=12, weight="bold"), text_color="#78909c").pack(anchor="w", pady=(8, 4))
-
-    def toggle_api_key(self, val):
-        if "Claude" in val:
-            self.api_frame.pack(fill="x", pady=(0, 8))
-        else:
-            self.api_frame.pack_forget()
+        ctk.CTkLabel(parent, text=text,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color="#78909c").pack(anchor="w", pady=(8, 4))
 
     def browse_folder(self):
         folder = filedialog.askdirectory(
@@ -257,44 +232,35 @@ class App(ctk.CTk):
     def _set_status(self, text):
         self.after(0, lambda: self.status_label.configure(text=text))
 
+    def _finish_ui(self):
+        self.after(0, lambda: self.start_btn.configure(state="normal"))
+        self.after(0, lambda: self.stop_btn.configure(state="disabled"))
+
     def start_translate(self):
         path = self.path_var.get().strip()
         if not path:
             self.log("⚠ Vui lòng chọn thư mục instance!")
             return
-        mods_path = os.path.join(path, "mods")
-        if not os.path.exists(mods_path):
+        if not os.path.exists(os.path.join(path, "mods")):
             self.log(f"⚠ Không tìm thấy thư mục mods/ trong: {path}")
             return
 
         try:
             workers = int(self.workers_var.get() or 5)
             if not (1 <= workers <= 32):
-                self.log("⚠ Số mod song song phải từ 1–32, dùng mặc định 5")
                 workers = 5
         except ValueError:
-            self.log("⚠ Số mod song song không hợp lệ, dùng mặc định 5")
             workers = 5
 
         try:
             batch_size = int(self.batch_var.get() or 50)
             if not (1 <= batch_size <= 200):
-                self.log("⚠ Batch size phải từ 1–200, dùng mặc định 50")
                 batch_size = 50
         except ValueError:
-            self.log("⚠ Batch size không hợp lệ, dùng mặc định 50")
             batch_size = 50
 
-        if "Claude" in self.service_var.get():
-            api_key = self.api_var.get().strip()
-            if not api_key:
-                self.log("⚠ Vui lòng nhập Claude API Key!")
-                return
-            if not api_key.startswith("sk-ant-"):
-                self.log("⚠ API Key không hợp lệ (phải bắt đầu bằng sk-ant-)")
-                return
-
         self.running = True
+        self._error_count = 0
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
         self.log_box.configure(state="normal")
@@ -312,13 +278,14 @@ class App(ctk.CTk):
         try:
             path = self.path_var.get().strip()
             mods_path = os.path.join(path, "mods")
-            pack_name = "VietNamese_Complete"
-            output_pack = os.path.join(path, "resourcepacks", pack_name)
+            output_pack = os.path.join(path, "resourcepacks", "FileTranslate")
             lang_name = self.lang_var.get()
             lang_code, lang_file = LANG_OPTIONS.get(lang_name, ("vi", "vi_vn"))
-            service = self.service_var.get()
-            api_key = self.api_var.get().strip()
 
+            if self.reset_var.get() and os.path.exists(output_pack):
+                import shutil
+                shutil.rmtree(output_pack)
+                self.log("🗑 Đã xóa Resource Pack cũ, dịch lại từ đầu...")
             os.makedirs(output_pack, exist_ok=True)
             with open(os.path.join(output_pack, "pack.mcmeta"), "w") as f:
                 json.dump({"pack": {"pack_format": 15, "description": "Auto translated"}}, f)
@@ -332,82 +299,44 @@ class App(ctk.CTk):
                 return
 
             self.log(f"✓ Tìm thấy {self.total_mods} mod")
-            self.log(f"✓ Ngôn ngữ: {lang_name} | Dịch vụ: {'Claude AI' if 'Claude' in service else 'Google Translate'}")
+            self.log(f"✓ Ngôn ngữ: {lang_name} | Google Translate")
             self.log(f"✓ {workers} mod song song | Batch {batch_size} key/lần\n")
             self._set_status("Đang dịch...")
 
-            def translate_batch_google(texts):
-                # Use null-byte delimited separator to avoid collision with game text
-                sep = "\x00||||\x00"
+            from deep_translator import GoogleTranslator
+
+            def translate_batch(texts):
+                if not texts:
+                    return []
+                sep = " ||| "
                 try:
-                    from deep_translator import GoogleTranslator
-                    joined = sep.join(texts)
-                    result = GoogleTranslator(source="en", target=lang_code).translate(joined)
-                    if not result:
-                        return texts
-                    parts = [p.strip() for p in result.split("||||")]
-                    if len(parts) == len(texts):
-                        return parts
-                    # Fallback: translate one-by-one
-                    self.log(f"  ⚠ Google Translate: nhận {len(parts)}/{len(texts)} kết quả, thử từng câu")
-                    out = []
-                    for t in texts:
-                        try:
-                            r = GoogleTranslator(source="en", target=lang_code).translate(t)
-                            out.append(r if r else t)
-                            time.sleep(0.15)
-                        except Exception:
-                            out.append(t)
-                    return out
-                except Exception as e:
-                    self.log(f"  ⚠ Google Translate lỗi: {e}")
+                    result = GoogleTranslator(source="en", target=lang_code).translate(sep.join(texts))
+                    parts = [p.strip() for p in result.split("|||")]
+                    return parts if len(parts) == len(texts) else [
+                        GoogleTranslator(source="en", target=lang_code).translate(t) or t for t in texts
+                    ]
+                except Exception:
                     time.sleep(1)
-                    return texts
-
-            def translate_batch_claude(texts):
-                try:
-                    import anthropic
-                    client = anthropic.Anthropic(api_key=api_key)
-                    prompt = (
-                        f"Translate these Minecraft game strings from English to {lang_name}. "
-                        f"Return ONLY a JSON array of translated strings, same order, same count, no explanation:\n"
-                        f"{json.dumps(texts, ensure_ascii=False)}"
-                    )
-                    msg = client.messages.create(
-                        model="claude-haiku-4-5-20251001",
-                        max_tokens=4096,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    if not msg.content or not hasattr(msg.content[0], "text"):
-                        self.log("  ⚠ Claude API: response không hợp lệ")
+                    try:
+                        return [GoogleTranslator(source="en", target=lang_code).translate(t) or t for t in texts]
+                    except Exception:
                         return texts
-                    result = json.loads(msg.content[0].text)
-                    if not isinstance(result, list):
-                        self.log("  ⚠ Claude API: kết quả không phải JSON array")
-                        return texts
-                    if len(result) != len(texts):
-                        self.log(f"  ⚠ Claude API: nhận {len(result)}/{len(texts)} kết quả, tự điều chỉnh")
-                        # Pad with originals or truncate to match
-                        result = (result + texts)[:len(texts)]
-                    return result
-                except json.JSONDecodeError as e:
-                    self.log(f"  ⚠ Claude API lỗi parse JSON: {e}")
-                    return texts
-                except Exception as e:
-                    self.log(f"  ⚠ Claude API lỗi: {e}")
-                    return texts
-
-            translate_fn = translate_batch_claude if "Claude" in service else translate_batch_google
 
             def process_jar(jar_path):
                 if not self.running:
-                    return Path(jar_path).stem, []
+                    return Path(jar_path).stem, [], 0, True
                 mod_name = Path(jar_path).stem
                 results = []
+                jar_errors = 0
                 try:
                     with zipfile.ZipFile(jar_path, "r") as zf:
                         entries = zf.namelist()
-                        for en_path in [e for e in entries if e.endswith("lang/en_us.json")]:
+                        lang_entries = [e for e in entries if e.endswith("lang/en_us.json")]
+                        lang_entries += [e for e in entries if e.endswith("lang/en_us.lang")]
+
+                        for en_path in lang_entries:
+                            if not self.running:
+                                break
                             parts = en_path.split("/")
                             if len(parts) < 3:
                                 continue
@@ -416,74 +345,119 @@ class App(ctk.CTk):
                             if os.path.exists(out_file):
                                 results.append(f"  ↷ Bỏ qua: {namespace}")
                                 continue
+
+                            is_lang_file = en_path.endswith(".lang")
                             try:
-                                en_json = json.loads(zf.read(en_path).decode("utf-8"))
-                            except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                                results.append(f"  ✗ Lỗi đọc en_us.json ({namespace}): {e}")
+                                raw = zf.read(en_path).decode("utf-8", errors="replace")
+                                cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", raw)
+
+                                if is_lang_file:
+                                    en_json = {}
+                                    for line in raw.splitlines():
+                                        line = line.strip()
+                                        if not line or line.startswith("#"):
+                                            continue
+                                        if "=" in line:
+                                            k, _, v = line.partition("=")
+                                            en_json[k.strip()] = v.strip()
+                                else:
+                                    try:
+                                        en_json = json.loads(cleaned)
+                                    except json.JSONDecodeError:
+                                        results.append(f"  ✗ JSON lỗi: {namespace}")
+                                        jar_errors += 1
+                                        continue
+                            except Exception as e:
+                                results.append(f"  ✗ Lỗi đọc file ({namespace}): {e}")
+                                jar_errors += 1
                                 continue
-                            vi_path = en_path.replace("en_us.json", f"{lang_file}.json")
+
+                            vi_path = en_path.replace("en_us.json", f"{lang_file}.json").replace("en_us.lang", f"{lang_file}.json")
                             vi_json = {}
                             if vi_path in entries:
                                 try:
                                     vi_json = json.loads(zf.read(vi_path).decode("utf-8"))
-                                except (json.JSONDecodeError, UnicodeDecodeError):
+                                except Exception:
                                     vi_json = {}
-                            missing = {k: v for k, v in en_json.items() if k not in vi_json and isinstance(v, str) and v.strip()}
+
+                            missing = {k: v for k, v in en_json.items()
+                                       if k not in vi_json and isinstance(v, str) and v.strip()}
                             if not missing:
                                 continue
+
                             new_trans = dict(vi_json)
                             keys, vals = list(missing.keys()), list(missing.values())
+                            batch_failed = False
+
                             for i in range(0, len(vals), batch_size):
                                 if not self.running:
                                     break
-                                batch_keys = keys[i:i + batch_size]
-                                batch_vals = vals[i:i + batch_size]
-                                translated = translate_fn(batch_vals)
-                                if len(translated) != len(batch_keys):
-                                    self.log(f"  ⚠ Số kết quả không khớp batch ({len(translated)}/{len(batch_keys)}), bỏ qua batch này")
-                                    continue
-                                for k, v in zip(batch_keys, translated):
-                                    new_trans[k] = v
+                                try:
+                                    translated = translate_batch(vals[i:i + batch_size])
+                                except Exception as e:
+                                    self.log(f"  ✗ Lỗi dịch ({namespace}): {e}")
+                                    jar_errors += 1
+                                    batch_failed = True
+                                    break
+                                if len(translated) == len(keys[i:i + batch_size]):
+                                    for k, v in zip(keys[i:i + batch_size], translated):
+                                        new_trans[k] = v
                                 time.sleep(0.3)
+
+                            if batch_failed or not self.running:
+                                continue
+
                             os.makedirs(os.path.dirname(out_file), exist_ok=True)
                             with open(out_file, "w", encoding="utf-8") as f:
                                 json.dump(new_trans, f, ensure_ascii=False, indent=2)
                             results.append(f"  ✓ {namespace}: {len(missing)} key đã dịch")
+
                 except Exception as e:
                     results.append(f"  ✗ Lỗi: {e}")
-                return mod_name, results
+                    jar_errors += 1
+
+                return mod_name, results, jar_errors, False
 
             with ThreadPoolExecutor(max_workers=workers) as ex:
                 futures = {ex.submit(process_jar, str(j)): j for j in jar_files}
                 for future in as_completed(futures):
-                    mod_name, results = future.result()
+                    mod_name, results, jar_errors, skipped = future.result()
+                    if skipped:
+                        continue
+                    self._error_count += jar_errors
                     self.done_mods += 1
                     self.update_progress()
                     if any("✓" in r for r in results):
                         self.log(f"[{self.done_mods}/{self.total_mods}] {mod_name}")
                         for r in results:
                             self.log(r)
+                    elif jar_errors > 0:
+                        self.log(f"[{self.done_mods}/{self.total_mods}] {mod_name} -- CÓ LỖI")
+                        for r in results:
+                            self.log(r)
                     else:
                         self._set_status(f"[{self.done_mods}/{self.total_mods}] {mod_name}")
 
-            if self.running:
-                self.log(f"\n✅ HOÀN TẤT! Resource Pack lưu tại:\n{output_pack}")
-                self.log("\nBước tiếp theo:")
-                self.log("1. Mở Minecraft → Options → Resource Packs")
-                self.log("2. Bật 'VietNamese_Complete' lên trên cùng")
-                self.log("3. Đổi ngôn ngữ trong Settings")
-                self._set_status("✅ Hoàn tất!")
-            else:
+            if not self.running:
                 self.log("\n⏹ Đã dừng. Chạy lại để tiếp tục từ chỗ dở.")
                 self._set_status("Đã dừng")
+            elif self._error_count > 0:
+                self.log(f"\n⚠ Hoàn tất nhưng có {self._error_count} lỗi.")
+                self.log(f"Resource Pack lưu tại:\n{output_pack}")
+                self._set_status(f"Hoàn tất - {self._error_count} lỗi")
+            else:
+                self.log(f"\n✅ HOÀN TẤT! Resource Pack lưu tại:\n{output_pack}")
+                self.log("\n1. Mở Minecraft → Options → Resource Packs")
+                self.log("2. Bật 'FileTranslate' lên trên cùng")
+                self.log("3. Đổi ngôn ngữ trong Settings")
+                self._set_status("✅ Hoàn tất!")
 
         except Exception as e:
             self.log(f"\n✗ Lỗi không mong đợi: {e}")
             self._set_status("Lỗi!")
         finally:
             self.running = False
-            self.after(0, lambda: self.start_btn.configure(state="normal"))
-            self.after(0, lambda: self.stop_btn.configure(state="disabled"))
+            self._finish_ui()
 
 
 if __name__ == "__main__":
