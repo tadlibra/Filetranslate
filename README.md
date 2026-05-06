@@ -7,7 +7,6 @@ Tự động dịch toàn bộ mod trong modpack sang tiếng Việt chỉ với
 ## ✨ Tính năng
 - ⚡ Dịch nhanh với đa luồng (nhiều mod song song)
 - 🔧 Bảo toàn placeholder (%s, %d, {0}...) không bị dịch sai
-- 📖 Dịch sách hướng dẫn Patchouli
 - ↷ Tự bỏ qua mod đã dịch rồi (tiếp tục từ chỗ dở)
 - 🗑 Tùy chọn xóa sạch và dịch lại từ đầu
 - 🌐 Hỗ trợ ngôn ngữ: Việt
