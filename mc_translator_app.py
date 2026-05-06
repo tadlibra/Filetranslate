@@ -277,82 +277,54 @@ class App(ctk.CTk):
     # FTB QUESTS TRANSLATION
     # ─────────────────────────────────────────────
 
-    def _translate_snbt(self, content, translate_fn):
+    def _extract_snbt_strings(self, content, file_key_prefix):
         """
-        Tìm và dịch các chuỗi văn bản trong file SNBT của FTB Quests.
-        Các field được dịch: title, subtitle, description[], text[]
-        Trả về (nội_dung_mới, số_chuỗi_đã_dịch).
+        Trích xuất các chuỗi cần dịch từ file SNBT, trả về dict {lang_key: original_text}.
+        Không sửa file SNBT gốc.
         """
-        spans = []  # list of (abs_start, abs_end, original_value)
+        entries = {}  # key -> original text
+        counter = [0]
 
-        # --- 1. Single-value fields: title: "...", subtitle: "..." ---
-        single_pat = re.compile(
-            r'(?:title|subtitle|name):\s*"((?:[^"\\]|\\.)*)"'
-        )
+        def make_key(field, idx=None):
+            base = f"{file_key_prefix}.{field}"
+            counter[0] += 1
+            return f"{base}.{counter[0]}" if idx is None else f"{base}.{idx}"
+
+        single_pat = re.compile(r'(?:title|subtitle|name):\s*"((?:[^"\\]|\\.)*)"')
         for m in single_pat.finditer(content):
             val = m.group(1).strip()
-            # Bỏ qua chuỗi rỗng hoặc chỉ chứa ký tự định dạng Minecraft như §
-            if val and not re.fullmatch(r'[\s§\d\w_\-.:]+', val):
-                spans.append((m.start(1), m.end(1), m.group(1)))
-            elif val and ' ' in val:
-                # Có khoảng trắng → khả năng là câu văn cần dịch
-                spans.append((m.start(1), m.end(1), m.group(1)))
+            if not val:
+                continue
+            if ' ' in val or not re.fullmatch(r'[\s§\d\w_\-.:]+', val):
+                key = make_key("title")
+                entries[key] = m.group(1)
 
-        # --- 2. Array fields: description: [...], text: [...] ---
-        # Dùng regex tìm mảng, hỗ trợ multiline
-        array_pat = re.compile(
-            r'(?:description|text):\s*\[([\s\S]*?)\]',
-            re.MULTILINE
-        )
+        array_pat = re.compile(r'(?:description|text):\s*\[([\s\S]*?)\]', re.MULTILINE)
         str_in_arr = re.compile(r'"((?:[^"\\]|\\.)*)"')
-
         for arr_m in array_pat.finditer(content):
-            arr_body = arr_m.group(1)
-            arr_offset = arr_m.start(1)
-            for str_m in str_in_arr.finditer(arr_body):
+            field = re.search(r'(description|text)', content[arr_m.start()-15:arr_m.start()])
+            field_name = field.group(1) if field else "text"
+            for i, str_m in enumerate(str_in_arr.finditer(arr_m.group(1))):
                 val = str_m.group(1)
                 if val.strip():
-                    abs_start = arr_offset + str_m.start(1)
-                    abs_end = arr_offset + str_m.end(1)
-                    spans.append((abs_start, abs_end, val))
+                    key = make_key(field_name, i)
+                    entries[key] = val
 
-        if not spans:
-            return content, 0
+        return entries
 
-        # Loại bỏ trùng lặp vị trí (ưu tiên xuất hiện trước)
-        seen_starts = set()
-        unique_spans = []
-        for s in sorted(spans, key=lambda x: x[0]):
-            if s[0] not in seen_starts:
-                seen_starts.add(s[0])
-                unique_spans.append(s)
-
-        # Dịch tất cả cùng lúc
-        values = [s[2] for s in unique_spans]
-        translated = translate_fn(values)
-
-        if len(translated) != len(values):
-            return content, 0
-
-        # Thay thế từ cuối về đầu để không làm lệch vị trí
-        result = content
-        for (start, end, orig), trans in reversed(list(zip(unique_spans, translated))):
-            # Escape ký tự đặc biệt trong chuỗi SNBT
-            safe_trans = trans.replace('\\', '\\\\').replace('"', '\\"')
-            result = result[:start] + safe_trans + result[end:]
-
-        return result, len(unique_spans)
-
-    def translate_ftbquests(self, instance_path, translate_fn, lang_code):
-        """Dịch toàn bộ file SNBT trong config/ftbquests/quests/"""
-
+    def translate_ftbquests(self, instance_path, translate_fn, lang_file):
+        """
+        Dịch FTB Quests bằng hệ thống lang file.
+        Xuất ra config/ftbquests/quests/lang/<lang_file>.json
+        Người chơi chỉ cần đổi ngôn ngữ Minecraft để quest tự đổi theo.
+        """
         quest_dir = os.path.join(instance_path, "config", "ftbquests", "quests")
         if not os.path.exists(quest_dir):
             self.log("ℹ️  FTB Quests: Không tìm thấy thư mục config/ftbquests/quests/")
             return
 
-        # Output sang thư mục riêng để an toàn (không ghi đè bản gốc)
-        out_dir = os.path.join(instance_path, "ftbquests_translated")
+        lang_dir = os.path.join(quest_dir, "lang")
+        lang_out = os.path.join(lang_dir, f"{lang_file}.json")
 
         snbt_files = list(Path(quest_dir).rglob("*.snbt"))
         if not snbt_files:
@@ -362,47 +334,105 @@ class App(ctk.CTk):
         self.log(f"\n📋 FTB Quests: Tìm thấy {len(snbt_files)} file quest")
         self._set_status("Đang dịch FTB Quests...")
 
-        total_strings = 0
-        total_files = 0
+        # Load bản dịch cũ nếu có
+        existing = {}
+        if os.path.exists(lang_out) and not self.reset_var.get():
+            try:
+                with open(lang_out, encoding="utf-8") as f:
+                    existing = json.load(f)
+            except Exception:
+                existing = {}
 
+        all_entries = {}  # key -> original (EN)
         for snbt_path in snbt_files:
             if not self.running:
-                break
-
-            rel = snbt_path.relative_to(quest_dir)
-            out_path = Path(out_dir) / rel
-
-            # Bỏ qua nếu đã dịch và không bật reset
-            if out_path.exists() and not self.reset_var.get():
-                self.log(f"  ↷ Bỏ qua (đã dịch): {rel}")
-                continue
-
+                return
             try:
                 content = snbt_path.read_text(encoding="utf-8", errors="replace")
-                new_content, count = self._translate_snbt(content, translate_fn)
-
-                if count > 0:
-                    out_path.parent.mkdir(parents=True, exist_ok=True)
-                    out_path.write_text(new_content, encoding="utf-8")
-                    total_strings += count
-                    total_files += 1
-                    self.log(f"  ✓ {rel}: {count} chuỗi đã dịch")
-                else:
-                    self.log(f"  – {rel}: không có chuỗi cần dịch")
-
+                rel = snbt_path.relative_to(quest_dir)
+                prefix = str(rel).replace("\\", "/").replace(".snbt", "").replace("/", ".")
+                entries = self._extract_snbt_strings(content, prefix)
+                all_entries.update(entries)
             except Exception as e:
                 self._error_count += 1
-                self.log(f"  ✗ {rel}: {e}")
+                self.log(f"  ✗ {snbt_path.name}: {e}")
 
-        if total_files > 0:
-            self.log(f"\n✅ FTB Quests: {total_strings} chuỗi trong {total_files} file đã dịch")
-            self.log(f"   Bản dịch lưu tại: {out_dir}")
-            self.log(f"   ▶ Cách áp dụng:")
-            self.log(f"     1. Mở thư mục: {out_dir}")
-            self.log(f"     2. Copy toàn bộ nội dung vào: config/ftbquests/quests/")
-            self.log(f"     3. Ghi đè file gốc khi được hỏi")
-        else:
-            self.log("ℹ️  FTB Quests: Không có file mới cần dịch")
+        missing = {k: v for k, v in all_entries.items() if k not in existing}
+        if not missing:
+            self.log("ℹ️  FTB Quests: Không có chuỗi mới cần dịch")
+            return
+
+        self.log(f"   Dịch {len(missing)} chuỗi mới...")
+
+        result = dict(existing)
+        keys = list(missing.keys())
+        vals = list(missing.values())
+        batch_size = 50
+
+        for i in range(0, len(vals), batch_size):
+            if not self.running:
+                return
+            try:
+                translated = translate_fn(vals[i:i + batch_size])
+                for k, t in zip(keys[i:i + batch_size], translated):
+                    result[k] = t
+            except Exception as e:
+                self._error_count += 1
+                self.log(f"  ✗ Lỗi dịch batch FTB Quests: {e}")
+            time.sleep(0.3)
+
+        os.makedirs(lang_dir, exist_ok=True)
+        with open(lang_out, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+
+        self.log(f"\n✅ FTB Quests: {len(missing)} chuỗi đã dịch")
+        self.log(f"   File lang: {lang_out}")
+        self.log(f"   ▶ Cách dùng: Đổi ngôn ngữ Minecraft sang {lang_file} → quest tự đổi theo")
+
+    # ─────────────────────────────────────────────
+    # AUTO-ENABLE RESOURCE PACK
+    # ─────────────────────────────────────────────
+
+    def _enable_resource_pack(self, instance_path):
+        """Tự động thêm FileTranslate vào options.txt để không cần bật tay."""
+        options_file = os.path.join(instance_path, "options.txt")
+        if not os.path.exists(options_file):
+            self.log("⚠ Không tìm thấy options.txt, bỏ qua auto-enable RP.")
+            return
+
+        with open(options_file, encoding="utf-8") as f:
+            lines = f.readlines()
+
+        new_lines = []
+        found = False
+        for line in lines:
+            if line.startswith("resourcePacks:"):
+                found = True
+                # Lấy danh sách hiện tại từ dạng ["a","b",...]
+                m = re.match(r'resourcePacks:\[(.*)\]', line.strip())
+                if m:
+                    inner = m.group(1).strip()
+                    entries = [e.strip() for e in inner.split(",") if e.strip()] if inner else []
+                else:
+                    entries = []
+
+                pack_entry = '"FileTranslate"'
+                if pack_entry not in entries:
+                    entries.append(pack_entry)
+                    new_lines.append(f'resourcePacks:[{",".join(entries)}]\n')
+                    self.log("✓ Đã tự động bật Resource Pack 'FileTranslate' trong options.txt")
+                else:
+                    new_lines.append(line)
+                    self.log("✓ Resource Pack 'FileTranslate' đã có sẵn trong options.txt")
+            else:
+                new_lines.append(line)
+
+        if not found:
+            new_lines.append('resourcePacks:["FileTranslate"]\n')
+            self.log("✓ Đã thêm dòng resourcePacks vào options.txt")
+
+        with open(options_file, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
 
     # ─────────────────────────────────────────────
     # MAIN TRANSLATE RUNNER
@@ -583,9 +613,13 @@ class App(ctk.CTk):
                     else:
                         self._set_status(f"[{self.done_mods}/{self.total_mods}] {mod_name}")
 
-            # ── Dịch FTB Quests (nếu bật) ──
+            # ── Dịch FTB Quests ──
             if self.running:
-                self.translate_ftbquests(path, translate_batch, lang_code)
+                self.translate_ftbquests(path, translate_batch, lang_file)
+
+            # ── Auto-enable Resource Pack ──
+            if self.running:
+                self._enable_resource_pack(path)
 
             # ── Kết quả ──
             if not self.running:
@@ -593,13 +627,11 @@ class App(ctk.CTk):
                 self._set_status("Đã dừng")
             elif self._error_count > 0:
                 self.log(f"\n⚠ Hoàn tất nhưng có {self._error_count} lỗi.")
-                self.log(f"Resource Pack lưu tại:\n{output_pack}")
+                self.log(f"▶ Khởi động Minecraft và đổi ngôn ngữ sang {lang_name} là xong.")
                 self._set_status(f"Hoàn tất - {self._error_count} lỗi")
             else:
-                self.log(f"\n✅ HOÀN TẤT! Resource Pack lưu tại:\n{output_pack}")
-                self.log("\n1. Mở Minecraft → Options → Resource Packs")
-                self.log("2. Bật 'FileTranslate' lên trên cùng")
-                self.log("3. Đổi ngôn ngữ trong Settings")
+                self.log(f"\n✅ HOÀN TẤT!")
+                self.log(f"▶ Khởi động Minecraft và đổi ngôn ngữ sang {lang_name} là xong.")
                 self._set_status("✅ Hoàn tất!")
 
         except Exception as e:
