@@ -23,7 +23,6 @@ LANG_OPTIONS = {
     "Tiếng Việt": ("vi", "vi_vn"),
 }
 
-
 def find_curseforge_path():
     candidates = [
         Path.home() / "minecraft" / "Instances",
@@ -45,25 +44,22 @@ class App(ctk.CTk):
             self.iconbitmap("icon.ico")
         except:
             pass
-        self.geometry("780x620")
+        self.geometry("780x680")
         self.resizable(False, False)
         self.configure(fg_color="#0f1117")
-
         self.running = False
         self.total_mods = 0
         self.done_mods = 0
         self._error_count = 0
         self._curseforge_path = find_curseforge_path()
-
         self._build_ui()
 
     def _build_ui(self):
         header = ctk.CTkFrame(self, fg_color="#161b27", corner_radius=0, height=64)
         header.pack(fill="x")
         header.pack_propagate(False)
-
         ctk.CTkLabel(
-            header, text="🐝  Beeslater",
+            header, text="🐝 Beeslater",
             font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
             text_color="#4fc3f7"
         ).pack(side="left", padx=24, pady=16)
@@ -79,7 +75,8 @@ class App(ctk.CTk):
         right.pack(side="left", fill="both", expand=True)
 
         # COT TRAI
-        self._section(left, "📁  Thư mục modpack")
+        self._section(left, "📁 Thư mục modpack")
+
         path_frame = ctk.CTkFrame(left, fg_color="#1a1f2e", corner_radius=8)
         path_frame.pack(fill="x", pady=(0, 12))
 
@@ -98,7 +95,7 @@ class App(ctk.CTk):
             command=self.browse_folder
         ).pack(side="right", padx=(0, 8), pady=8)
 
-        self._section(left, "🌐  Ngôn ngữ đích")
+        self._section(left, "🌐 Ngôn ngữ đích")
         self.lang_var = ctk.StringVar(value="Tiếng Việt")
         ctk.CTkOptionMenu(
             left, values=list(LANG_OPTIONS.keys()),
@@ -108,21 +105,22 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=13), height=38
         ).pack(fill="x", pady=(0, 12))
 
-        self._section(left, "⚙️  Cài đặt nâng cao")
+        self._section(left, "⚙️ Cài đặt nâng cao")
+
         adv = ctk.CTkFrame(left, fg_color="transparent")
         adv.pack(fill="x", pady=(0, 12))
 
         ctk.CTkLabel(adv, text="Mod song song:", font=ctk.CTkFont(size=12), text_color="#78909c").pack(side="left")
         self.workers_var = tk.StringVar(value="5")
         ctk.CTkEntry(adv, textvariable=self.workers_var, width=50, height=30,
-            fg_color="#1a1f2e", border_color="#2a3a4a",
-            font=ctk.CTkFont(size=12)).pack(side="left", padx=(8, 16))
+                     fg_color="#1a1f2e", border_color="#2a3a4a",
+                     font=ctk.CTkFont(size=12)).pack(side="left", padx=(8, 16))
 
         ctk.CTkLabel(adv, text="Batch size:", font=ctk.CTkFont(size=12), text_color="#78909c").pack(side="left")
         self.batch_var = tk.StringVar(value="50")
         ctk.CTkEntry(adv, textvariable=self.batch_var, width=50, height=30,
-            fg_color="#1a1f2e", border_color="#2a3a4a",
-            font=ctk.CTkFont(size=12)).pack(side="left", padx=8)
+                     fg_color="#1a1f2e", border_color="#2a3a4a",
+                     font=ctk.CTkFont(size=12)).pack(side="left", padx=8)
 
         self.reset_var = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(
@@ -136,7 +134,7 @@ class App(ctk.CTk):
         ).pack(anchor="w", pady=(0, 8))
 
         self.start_btn = ctk.CTkButton(
-            left, text="▶  BẮT ĐẦU DỊCH", height=46,
+            left, text="▶ BẮT ĐẦU DỊCH", height=46,
             fg_color="#1565c0", hover_color="#0d47a1",
             font=ctk.CTkFont(size=15, weight="bold"),
             corner_radius=10,
@@ -145,7 +143,7 @@ class App(ctk.CTk):
         self.start_btn.pack(fill="x", pady=(0, 0))
 
         self.stop_btn = ctk.CTkButton(
-            left, text="⏹  DỪNG LẠI", height=38,
+            left, text="⏹ DỪNG LẠI", height=38,
             fg_color="#b71c1c", hover_color="#7f0000",
             font=ctk.CTkFont(size=13),
             corner_radius=10,
@@ -155,7 +153,7 @@ class App(ctk.CTk):
         self.stop_btn.pack(fill="x", pady=(6, 0))
 
         # COT PHAI
-        self._section(right, "📊  Tiến trình")
+        self._section(right, "📊 Tiến trình")
 
         prog_frame = ctk.CTkFrame(right, fg_color="#1a1f2e", corner_radius=10)
         prog_frame.pack(fill="x", pady=(0, 10))
@@ -164,22 +162,23 @@ class App(ctk.CTk):
         stats.pack(fill="x", padx=12, pady=(10, 4))
 
         self.mod_label = ctk.CTkLabel(stats, text="0 / 0 mod",
-            font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
+                                      font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
         self.mod_label.pack(side="left")
         self.pct_label = ctk.CTkLabel(stats, text="0%",
-            font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
+                                      font=ctk.CTkFont(size=13, weight="bold"), text_color="#4fc3f7")
         self.pct_label.pack(side="right")
 
         self.progress_bar = ctk.CTkProgressBar(prog_frame, height=10,
-            fg_color="#0d1b2a", progress_color="#1565c0", corner_radius=5)
+                                               fg_color="#0d1b2a", progress_color="#1565c0", corner_radius=5)
         self.progress_bar.pack(fill="x", padx=12, pady=(0, 10))
         self.progress_bar.set(0)
 
         self.status_label = ctk.CTkLabel(right, text="Sẵn sàng...",
-            font=ctk.CTkFont(size=12), text_color="#546e7a")
+                                         font=ctk.CTkFont(size=12), text_color="#546e7a")
         self.status_label.pack(anchor="w", pady=(0, 6))
 
-        self._section(right, "📝  Log")
+        self._section(right, "📝 Log")
+
         log_frame = ctk.CTkFrame(right, fg_color="#1a1f2e", corner_radius=10)
         log_frame.pack(fill="both", expand=True)
 
@@ -201,8 +200,8 @@ class App(ctk.CTk):
 
     def _section(self, parent, text):
         ctk.CTkLabel(parent, text=text,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color="#78909c").pack(anchor="w", pady=(8, 4))
+                     font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color="#78909c").pack(anchor="w", pady=(8, 4))
 
     def browse_folder(self):
         folder = filedialog.askdirectory(
@@ -274,6 +273,141 @@ class App(ctk.CTk):
         self.log("⏹ Đang dừng...")
         self._set_status("Đang dừng...")
 
+    # ─────────────────────────────────────────────
+    # FTB QUESTS TRANSLATION
+    # ─────────────────────────────────────────────
+
+    def _translate_snbt(self, content, translate_fn):
+        """
+        Tìm và dịch các chuỗi văn bản trong file SNBT của FTB Quests.
+        Các field được dịch: title, subtitle, description[], text[]
+        Trả về (nội_dung_mới, số_chuỗi_đã_dịch).
+        """
+        spans = []  # list of (abs_start, abs_end, original_value)
+
+        # --- 1. Single-value fields: title: "...", subtitle: "..." ---
+        single_pat = re.compile(
+            r'(?:title|subtitle|name):\s*"((?:[^"\\]|\\.)*)"'
+        )
+        for m in single_pat.finditer(content):
+            val = m.group(1).strip()
+            # Bỏ qua chuỗi rỗng hoặc chỉ chứa ký tự định dạng Minecraft như §
+            if val and not re.fullmatch(r'[\s§\d\w_\-.:]+', val):
+                spans.append((m.start(1), m.end(1), m.group(1)))
+            elif val and ' ' in val:
+                # Có khoảng trắng → khả năng là câu văn cần dịch
+                spans.append((m.start(1), m.end(1), m.group(1)))
+
+        # --- 2. Array fields: description: [...], text: [...] ---
+        # Dùng regex tìm mảng, hỗ trợ multiline
+        array_pat = re.compile(
+            r'(?:description|text):\s*\[([\s\S]*?)\]',
+            re.MULTILINE
+        )
+        str_in_arr = re.compile(r'"((?:[^"\\]|\\.)*)"')
+
+        for arr_m in array_pat.finditer(content):
+            arr_body = arr_m.group(1)
+            arr_offset = arr_m.start(1)
+            for str_m in str_in_arr.finditer(arr_body):
+                val = str_m.group(1)
+                if val.strip():
+                    abs_start = arr_offset + str_m.start(1)
+                    abs_end = arr_offset + str_m.end(1)
+                    spans.append((abs_start, abs_end, val))
+
+        if not spans:
+            return content, 0
+
+        # Loại bỏ trùng lặp vị trí (ưu tiên xuất hiện trước)
+        seen_starts = set()
+        unique_spans = []
+        for s in sorted(spans, key=lambda x: x[0]):
+            if s[0] not in seen_starts:
+                seen_starts.add(s[0])
+                unique_spans.append(s)
+
+        # Dịch tất cả cùng lúc
+        values = [s[2] for s in unique_spans]
+        translated = translate_fn(values)
+
+        if len(translated) != len(values):
+            return content, 0
+
+        # Thay thế từ cuối về đầu để không làm lệch vị trí
+        result = content
+        for (start, end, orig), trans in reversed(list(zip(unique_spans, translated))):
+            # Escape ký tự đặc biệt trong chuỗi SNBT
+            safe_trans = trans.replace('\\', '\\\\').replace('"', '\\"')
+            result = result[:start] + safe_trans + result[end:]
+
+        return result, len(unique_spans)
+
+    def translate_ftbquests(self, instance_path, translate_fn, lang_code):
+        """Dịch toàn bộ file SNBT trong config/ftbquests/quests/"""
+
+        quest_dir = os.path.join(instance_path, "config", "ftbquests", "quests")
+        if not os.path.exists(quest_dir):
+            self.log("ℹ️  FTB Quests: Không tìm thấy thư mục config/ftbquests/quests/")
+            return
+
+        # Output sang thư mục riêng để an toàn (không ghi đè bản gốc)
+        out_dir = os.path.join(instance_path, "ftbquests_translated")
+
+        snbt_files = list(Path(quest_dir).rglob("*.snbt"))
+        if not snbt_files:
+            self.log("ℹ️  FTB Quests: Không tìm thấy file .snbt nào")
+            return
+
+        self.log(f"\n📋 FTB Quests: Tìm thấy {len(snbt_files)} file quest")
+        self._set_status("Đang dịch FTB Quests...")
+
+        total_strings = 0
+        total_files = 0
+
+        for snbt_path in snbt_files:
+            if not self.running:
+                break
+
+            rel = snbt_path.relative_to(quest_dir)
+            out_path = Path(out_dir) / rel
+
+            # Bỏ qua nếu đã dịch và không bật reset
+            if out_path.exists() and not self.reset_var.get():
+                self.log(f"  ↷ Bỏ qua (đã dịch): {rel}")
+                continue
+
+            try:
+                content = snbt_path.read_text(encoding="utf-8", errors="replace")
+                new_content, count = self._translate_snbt(content, translate_fn)
+
+                if count > 0:
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    out_path.write_text(new_content, encoding="utf-8")
+                    total_strings += count
+                    total_files += 1
+                    self.log(f"  ✓ {rel}: {count} chuỗi đã dịch")
+                else:
+                    self.log(f"  – {rel}: không có chuỗi cần dịch")
+
+            except Exception as e:
+                self._error_count += 1
+                self.log(f"  ✗ {rel}: {e}")
+
+        if total_files > 0:
+            self.log(f"\n✅ FTB Quests: {total_strings} chuỗi trong {total_files} file đã dịch")
+            self.log(f"   Bản dịch lưu tại: {out_dir}")
+            self.log(f"   ▶ Cách áp dụng:")
+            self.log(f"     1. Mở thư mục: {out_dir}")
+            self.log(f"     2. Copy toàn bộ nội dung vào: config/ftbquests/quests/")
+            self.log(f"     3. Ghi đè file gốc khi được hỏi")
+        else:
+            self.log("ℹ️  FTB Quests: Không có file mới cần dịch")
+
+    # ─────────────────────────────────────────────
+    # MAIN TRANSLATE RUNNER
+    # ─────────────────────────────────────────────
+
     def run_translate(self, workers, batch_size):
         try:
             path = self.path_var.get().strip()
@@ -286,6 +420,7 @@ class App(ctk.CTk):
                 import shutil
                 shutil.rmtree(output_pack)
                 self.log("🗑 Đã xóa Resource Pack cũ, dịch lại từ đầu...")
+
             os.makedirs(output_pack, exist_ok=True)
             with open(os.path.join(output_pack, "pack.mcmeta"), "w") as f:
                 json.dump({"pack": {"pack_format": 15, "description": "Auto translated"}}, f)
@@ -325,9 +460,11 @@ class App(ctk.CTk):
             def process_jar(jar_path):
                 if not self.running:
                     return Path(jar_path).stem, [], 0, True
+
                 mod_name = Path(jar_path).stem
                 results = []
                 jar_errors = 0
+
                 try:
                     with zipfile.ZipFile(jar_path, "r") as zf:
                         entries = zf.namelist()
@@ -337,13 +474,16 @@ class App(ctk.CTk):
                         for en_path in lang_entries:
                             if not self.running:
                                 break
+
                             parts = en_path.split("/")
                             if len(parts) < 3:
                                 continue
+
                             namespace = parts[1]
                             out_file = os.path.join(output_pack, "assets", namespace, "lang", f"{lang_file}.json")
+
                             if os.path.exists(out_file):
-                                results.append(f"  ↷ Bỏ qua: {namespace}")
+                                results.append(f" ↷ Bỏ qua: {namespace}")
                                 continue
 
                             is_lang_file = en_path.endswith(".lang")
@@ -364,11 +504,11 @@ class App(ctk.CTk):
                                     try:
                                         en_json = json.loads(cleaned)
                                     except json.JSONDecodeError:
-                                        results.append(f"  ✗ JSON lỗi: {namespace}")
+                                        results.append(f" ✗ JSON lỗi: {namespace}")
                                         jar_errors += 1
                                         continue
                             except Exception as e:
-                                results.append(f"  ✗ Lỗi đọc file ({namespace}): {e}")
+                                results.append(f" ✗ Lỗi đọc file ({namespace}): {e}")
                                 jar_errors += 1
                                 continue
 
@@ -382,6 +522,7 @@ class App(ctk.CTk):
 
                             missing = {k: v for k, v in en_json.items()
                                        if k not in vi_json and isinstance(v, str) and v.strip()}
+
                             if not missing:
                                 continue
 
@@ -395,10 +536,11 @@ class App(ctk.CTk):
                                 try:
                                     translated = translate_batch(vals[i:i + batch_size])
                                 except Exception as e:
-                                    self.log(f"  ✗ Lỗi dịch ({namespace}): {e}")
+                                    self.log(f" ✗ Lỗi dịch ({namespace}): {e}")
                                     jar_errors += 1
                                     batch_failed = True
                                     break
+
                                 if len(translated) == len(keys[i:i + batch_size]):
                                     for k, v in zip(keys[i:i + batch_size], translated):
                                         new_trans[k] = v
@@ -410,23 +552,26 @@ class App(ctk.CTk):
                             os.makedirs(os.path.dirname(out_file), exist_ok=True)
                             with open(out_file, "w", encoding="utf-8") as f:
                                 json.dump(new_trans, f, ensure_ascii=False, indent=2)
-                            results.append(f"  ✓ {namespace}: {len(missing)} key đã dịch")
+                            results.append(f" ✓ {namespace}: {len(missing)} key đã dịch")
 
                 except Exception as e:
-                    results.append(f"  ✗ Lỗi: {e}")
+                    results.append(f" ✗ Lỗi: {e}")
                     jar_errors += 1
 
                 return mod_name, results, jar_errors, False
 
+            # ── Dịch Mods ──
             with ThreadPoolExecutor(max_workers=workers) as ex:
                 futures = {ex.submit(process_jar, str(j)): j for j in jar_files}
                 for future in as_completed(futures):
                     mod_name, results, jar_errors, skipped = future.result()
                     if skipped:
                         continue
+
                     self._error_count += jar_errors
                     self.done_mods += 1
                     self.update_progress()
+
                     if any("✓" in r for r in results):
                         self.log(f"[{self.done_mods}/{self.total_mods}] {mod_name}")
                         for r in results:
@@ -438,6 +583,11 @@ class App(ctk.CTk):
                     else:
                         self._set_status(f"[{self.done_mods}/{self.total_mods}] {mod_name}")
 
+            # ── Dịch FTB Quests (nếu bật) ──
+            if self.running:
+                self.translate_ftbquests(path, translate_batch, lang_code)
+
+            # ── Kết quả ──
             if not self.running:
                 self.log("\n⏹ Đã dừng. Chạy lại để tiếp tục từ chỗ dở.")
                 self._set_status("Đã dừng")
