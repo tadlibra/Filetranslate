@@ -1,0 +1,18 @@
+# Build output
+dist/
+build/
+*.spec.bak
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# PyInstaller
+*.manifest
+
+# Env / IDE
+.env
+.vscode/
+.idea/
