@@ -1,66 +1,78 @@
-# Beeslater - Minecraft Mod Translator
+# Beeslater - Công cụ dịch modpack Minecraft
 
-Ung dung desktop Windows de dich file lang trong modpack Minecraft sang tieng Viet.
+Beeslater là ứng dụng Windows giúp dịch modpack Minecraft sang tiếng Việt. App có thể ghi trực tiếp file `vi_vn.json` vào modpack, nên khi vào game chỉ cần đổi Language sang Tiếng Việt là bản dịch được áp dụng.
 
-## Cong nghe
+## Dành Cho Người Dùng
 
-- C# / .NET 8 WinForms
-- Khong con phu thuoc Python
+Người dùng bình thường không cần cài .NET SDK và không cần build source.
 
-## Tinh nang
+1. Tải `Beeslater.exe` từ trang Release.
+2. Mở app.
+3. Chọn thư mục instance modpack.
+4. Cấu hình AI nếu muốn dùng Gemini, Claude/Claudible, OpenAI-compatible hoặc Ollama.
+5. Bấm `BẮT ĐẦU DỊCH`.
+6. Vào Minecraft, chọn ngôn ngữ `Tiếng Việt`.
 
-- Dich da luong cho nhieu mod `.jar`
-- Ho tro AI provider rieng cua tung nguoi dung:
+Nếu Windows SmartScreen cảnh báo, chọn `More info` rồi `Run anyway`.
+
+## Tính Năng
+
+- Dịch nhiều mod `.jar` trong modpack.
+- Dùng AI theo cấu hình riêng của từng người:
   - Gemini API
   - OpenAI-compatible endpoint
   - Anthropic/Claudible-compatible endpoint
   - Ollama local/offline
   - Google Translate fallback
-- Ho tro nguon `en_us`, `zh_cn`, `zh_tw`, `ja_jp`, `ko_kr`
-- Co che ghi truc tiep `vi_vn.json` vao modpack de doi Language trong game la ap dung, khong bat buoc resource pack
-- Backup jar truoc khi inject: `*.jar.beeslator.bak`
-- Dich FTB Quests sang:
-  - `config/ftbquests/quests/lang/vi_vn.json`
-  - `resourcepacks/FileTranslate/assets/ftbquests/lang/vi_vn.json`
-- Tu dong them `"FileTranslate"` vao `options.txt`
-- Nut dung giua qua trinh
-- Tuy chon xoa sach ban dich cu va dich lai
+- Hỗ trợ nguồn `en_us`, `zh_cn`, `zh_tw`, `ja_jp`, `ko_kr`.
+- Ghi trực tiếp `vi_vn.json` vào modpack, không bắt buộc bật resource pack.
+- Backup jar trước khi inject: `*.jar.beeslator.bak`.
+- Dịch Patchouli books.
+- Dịch FTB Quests qua `config/ftbquests/quests/lang/vi_vn.json`.
+- Tự đặt `lang:vi_vn` trong `options.txt`.
+- Có nút dừng giữa quá trình.
+- Có tùy chọn xóa bản dịch cũ và dịch lại từ đầu.
 
-## Cau hinh AI
+## Cấu Hình AI
 
-Trong app bam `Cau hinh AI`, chon provider va nhap key/model cua rieng ban.
-Config duoc luu local tai:
+Trong app bấm `CẤU HÌNH AI`, chọn provider rồi nhập API key/model của bạn.
 
-`%APPDATA%\Beeslator\translator.config.json`
+Config được lưu local trên máy người dùng:
 
-Khong commit API key vao repo.
+```text
+%APPDATA%\Beeslator\translator.config.json
+```
 
-Provider goi y:
+Không commit API key vào repo.
 
-- `Gemini`: de dung cho nguoi dung pho thong vi co free tier trong Google AI Studio tuy quota hien tai.
-- `OpenAiCompatible`: dung cho OpenAI, OpenRouter, LM Studio hoac endpoint tuong thich `/v1/chat/completions`.
-- `AnthropicCompatible`: dung cho Claude/Claudible endpoint tuong thich `/v1/messages`.
-- `Ollama`: mien phi/offline neu nguoi dung cai Ollama va co model local, mac dinh `http://localhost:11434`.
-- `Google`: fallback khong can key, chat luong thap hon AI.
+Gợi ý provider:
 
-## Build
+- `Gemini`: phù hợp cho người dùng phổ thông vì Google AI Studio có free tier tùy quota hiện tại.
+- `OpenAiCompatible`: dùng cho OpenAI, OpenRouter, LM Studio hoặc endpoint tương thích `/v1/chat/completions`.
+- `AnthropicCompatible`: dùng cho Claude/Claudible endpoint tương thích `/v1/messages`.
+- `Ollama`: miễn phí/offline nếu người dùng cài Ollama và có model local, mặc định `http://localhost:11434`.
+- `Google`: fallback không cần key, chất lượng thấp hơn AI.
 
-Yeu cau:
+## Dành Cho Developer
+
+Chỉ developer muốn sửa source hoặc tự build mới cần cài:
 
 - .NET SDK 8+
 
-Lenh:
+Build:
 
 ```bat
 build.bat
 ```
 
-Hoac truc tiep:
+Hoặc:
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-File EXE:
+File build nằm tại:
 
-`bin\Release\net8.0-windows\win-x64\publish\Beeslater.exe`
+```text
+bin\Release\net8.0-windows\win-x64\publish\Beeslater.exe
+```
