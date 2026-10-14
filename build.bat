@@ -18,7 +18,7 @@ echo  [OK] .NET SDK ready
 echo.
 
 echo  [1/4] Restoring packages...
-dotnet restore
+dotnet restore src/Filetranslate.csproj
 if errorlevel 1 (
     echo  [ERROR] Restore failed.
     pause
@@ -28,7 +28,7 @@ echo  [OK] Restore completed
 echo.
 
 echo  [2/4] Publishing single-file EXE...
-dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish src/Filetranslate.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
 if errorlevel 1 (
     echo  [ERROR] Publish failed.
     pause
