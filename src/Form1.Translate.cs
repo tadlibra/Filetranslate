@@ -71,6 +71,7 @@ public partial class Form1
         if (_aiConfig is null)
             Log("Chưa cấu hình AI: dùng Google Translate miễn phí, sẽ bị giới hạn với modpack lớn. Nên cấu hình AI trong CẤU HÌNH AI để dịch đủ.");
         await PrepareBuiltInAsync(ct);
+        if (_loadVanillaGlossary) _glossary = LoadVanillaGlossary(instancePath, langFile);
         Log("Quét JAR/ZIP, lang, Patchouli, nhiệm vụ và datapack. Mỗi file được backup trước khi thay thế.");
         try
         {
