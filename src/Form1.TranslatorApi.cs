@@ -73,6 +73,8 @@ public partial class Form1
                 for (var attempt = 0; ; attempt++)
                 {
                     try { return await TranslateBatchWithAiAsync(texts, target, source, _aiConfig, ct, context); }
+                    catch (RateLimitedException ex) when (attempt < 6 && !ct.IsCancellationRequested)
+                    { await Task.Delay(ex.RetryAfter ?? TimeSpan.FromSeconds(Math.Min(60, 2 << attempt)), ct); }
                     catch (Exception ex) when (attempt < 2 && !ct.IsCancellationRequested && IsTransient(ex))
                     { await Task.Delay(TimeSpan.FromSeconds(1 << attempt), ct); }
                 }
@@ -162,7 +164,7 @@ public partial class Form1
         });
 
         using var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response);
         var responseJson = await response.Content.ReadAsStringAsync(ct);
         return ParseAnthropicText(responseJson);
     }
@@ -187,7 +189,7 @@ public partial class Form1
         });
 
         using var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response);
         var json = await response.Content.ReadAsStringAsync(ct);
         return ParseOpenAiText(json);
     }
@@ -217,7 +219,7 @@ public partial class Form1
         });
 
         using var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response);
         var json = await response.Content.ReadAsStringAsync(ct);
         return ParseGeminiText(json);
     }
@@ -237,7 +239,7 @@ public partial class Form1
         });
 
         using var response = await _httpClient.SendAsync(request, ct);
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response);
         var json = await response.Content.ReadAsStringAsync(ct);
         return ParseOllamaText(json);
     }
@@ -257,13 +259,7 @@ public partial class Form1
                 var protectedText = ProtectTokens(envelope.Body, out var tokens);
                 var q = Uri.EscapeDataString(protectedText);
                 var url = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl={source}&tl={target}&dt=t&q={q}";
-                string json;
-                for (var attempt = 0; ; attempt++)
-                {
-                    try { json = await _httpClient.GetStringAsync(url, ct); break; }
-                    catch (Exception ex) when (attempt < 2 && !ct.IsCancellationRequested && IsTransient(ex))
-                    { await Task.Delay(TimeSpan.FromSeconds(1 << attempt), ct); }
-                }
+                var json = await GoogleGetAsync(url, ct);
                 var translated = ParseGoogleTranslate(json);
                 outList.Add(translated is null ? text : envelope.Prefix + RestoreTokens(ApplyMinecraftTerminology(envelope.Body, translated, target), tokens) + envelope.Suffix);
                 if (translated is null) { errors++; failed.Add(outList.Count - 1); }
@@ -281,6 +277,58 @@ public partial class Form1
         }
 
         return new TranslateResult(outList, errors, failed);
+    }
+
+    private sealed class RateLimitedException(TimeSpan? retryAfter)
+        : HttpRequestException("Rate limited (HTTP 429).", null, System.Net.HttpStatusCode.TooManyRequests)
+    {
+        public TimeSpan? RetryAfter { get; } = retryAfter;
+    }
+
+    private static void EnsureSuccess(HttpResponseMessage response)
+    {
+        if ((int)response.StatusCode == 429)
+            throw new RateLimitedException(response.Headers.RetryAfter?.Delta
+                ?? (response.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : null));
+        response.EnsureSuccessStatusCode();
+    }
+
+    // The free Google endpoint blocks bursts of single-string requests. One request at a time, a short gap,
+    // a growing pause after each 429, and a hard stop after repeated blocks so the run finishes with what it has.
+    private readonly SemaphoreSlim _googleGate = new(1);
+    private DateTime _googleNextRequest = DateTime.MinValue;
+    private int _googleStrikes;
+    private const int GoogleMaxStrikes = 4;
+
+    private async Task<string> GoogleGetAsync(string url, CancellationToken ct)
+    {
+        await _googleGate.WaitAsync(ct);
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                if (_googleStrikes >= GoogleMaxStrikes) throw new HttpRequestException("Google Translate is blocking this network; configure an AI provider.");
+                var wait = _googleNextRequest - DateTime.UtcNow;
+                if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
+                using var response = await _httpClient.GetAsync(url, ct);
+                if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
+                {
+                    var strikes = ++_googleStrikes;
+                    var pause = response.Headers.RetryAfter?.Delta ?? TimeSpan.FromSeconds(Math.Min(300, 30 << (strikes - 1)));
+                    _googleNextRequest = DateTime.UtcNow + pause;
+                    Log(strikes >= GoogleMaxStrikes
+                        ? "Google Translate chặn liên tục: dừng gọi Google. Chuỗi còn lại giữ tiếng Anh, chạy lại sau hoặc cấu hình AI để dịch tiếp."
+                        : $"Google Translate giới hạn tần suất (lần {strikes}/{GoogleMaxStrikes}); tạm dừng {pause.TotalSeconds:0}s.");
+                    continue;
+                }
+                if ((int)response.StatusCode >= 500 && attempt < 2) { await Task.Delay(TimeSpan.FromSeconds(1 << attempt), ct); continue; }
+                response.EnsureSuccessStatusCode();
+                _googleStrikes = 0;
+                _googleNextRequest = DateTime.UtcNow + TimeSpan.FromMilliseconds(150);
+                return await response.Content.ReadAsStringAsync(ct);
+            }
+        }
+        finally { _googleGate.Release(); }
     }
 
     private static bool IsTransient(Exception ex) => ex is OperationCanceledException

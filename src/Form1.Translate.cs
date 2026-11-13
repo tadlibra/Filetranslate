@@ -51,6 +51,10 @@ public partial class Form1
         var staging = SafeChildPath(instancePath, ".beeslator-staging");
         Directory.CreateDirectory(staging);
         var complete = false;
+        _googleStrikes = 0;
+        _googleNextRequest = DateTime.MinValue;
+        if (_aiConfig is null)
+            Log("Chưa cấu hình AI: dùng Google Translate miễn phí, sẽ bị giới hạn với modpack lớn. Nên cấu hình AI trong CẤU HÌNH AI để dịch đủ.");
         Log("Quét JAR/ZIP, lang, Patchouli, nhiệm vụ và datapack. Mỗi file được backup trước khi thay thế.");
         try
         {
@@ -74,8 +78,9 @@ public partial class Form1
                     var target = SafeChildPath(instancePath, targetRel);
                     var existing = File.Exists(target) ? await File.ReadAllTextAsync(target, ct) : null;
                     var result = await TranslateLangGroupAsync(targetRel, staging, content, existing, targetRel, langCode, ct);
-                    if (result.Errors == 0 && existing != result.Content) await WriteAtomicAsync(target, result.Content, true, ct);
-                    if (result.Errors == 0) await WriteAtomicAsync(result.StatePath, result.StateContent, false, ct);
+                    // Failed strings stay in the source language and are left out of the checkpoint, so a rerun retries only them.
+                    if (existing != result.Content) await WriteAtomicAsync(target, result.Content, true, ct);
+                    await WriteAtomicAsync(result.StatePath, result.StateContent, false, ct);
                     return result.Errors;
                 }));
             }
@@ -99,12 +104,10 @@ public partial class Form1
                     var result = await TranslateDocumentAsync(relative, relative, original, staging, langCode, ct);
                     if (file != target || raw != result.Content)
                     {
-                        // Do not commit a partly translated quest document; successful strings remain cached.
-                        if (result.Errors == 0)
-                        {
-                            await WriteAtomicAsync(target, result.Content, true, ct);
-                            if (file == target) await SaveDocumentStateAsync(statePath, original, result.Content, ct);
-                        }
+                        // The checkpoint keeps the untranslated original, so a rerun retranslates from it and only
+                        // the failed strings call the translator again (the rest come from the cache).
+                        await WriteAtomicAsync(target, result.Content, true, ct);
+                        if (file == target) await SaveDocumentStateAsync(statePath, original, result.Content, ct);
                     }
                     return result.Errors;
                 }));
@@ -117,6 +120,7 @@ public partial class Form1
             ct.ThrowIfCancellationRequested();
             await SetMinecraftLanguageAsync(instancePath, langFile, ct);
             complete = true;
+            if (_errorCount > 0) Log("Chuỗi lỗi được giữ nguyên tiếng gốc. Bấm BẮT ĐẦU DỊCH lần nữa để dịch tiếp phần còn thiếu; phần đã dịch lấy từ cache.");
             Log($"Xong lượt dịch: {_errorCount} lỗi; thời gian {_stopwatch?.Elapsed:mm\\:ss}.");
         }
         finally
@@ -232,11 +236,8 @@ public partial class Form1
                         var existing = zip.GetEntry(group.Key);
                         var result = await TranslateLangGroupAsync(identity + "!" + group.Key, staging, sources,
                             existing is null ? null : await ReadEntryAsync(existing, ct), group.Key, langCode, ct);
-                        if (result.Errors == 0)
-                        {
-                            await ReplaceEntry(group.Key, result.Content);
-                            pendingStates.Add((result.StatePath, result.StateContent));
-                        }
+                        await ReplaceEntry(group.Key, result.Content);
+                        pendingStates.Add((result.StatePath, result.StateContent));
                         errors += result.Errors;
                     }
                     catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -283,11 +284,8 @@ public partial class Form1
                         var (original, statePath) = await ReadDocumentOriginalAsync(entryIdentity, staging, raw, ct);
                         var result = await TranslateDocumentAsync(entryIdentity, entryName, original, staging, langCode, ct);
                         errors += result.Errors;
-                        if (result.Errors == 0)
-                        {
-                            await ReplaceEntry(target, result.Content);
-                            if (target == entryName) pendingStates.Add((statePath, JsonSerializer.Serialize(new DocumentCheckpoint(original, ContentHash(result.Content)))));
-                        }
+                        await ReplaceEntry(target, result.Content);
+                        if (target == entryName) pendingStates.Add((statePath, JsonSerializer.Serialize(new DocumentCheckpoint(original, ContentHash(result.Content)))));
                     }
                     catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                     catch (NotSupportedException ex) { _coverage.Enqueue(new(entryIdentity, "manual-review", 0, 0, ex.Message)); }
