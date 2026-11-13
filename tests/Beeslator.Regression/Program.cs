@@ -195,6 +195,15 @@ public partial class Form1
         Jar(nested, new() { ["assets/nested/lang/en_us.json"] = "{\"a\":\"Nested\"}" });
         using (var outer = ZipFile.Open(Path.Combine(instance, "mods", "outer.jar"), ZipArchiveMode.Create)) outer.CreateEntryFromFile(nested, "META-INF/jarjar/inner.jar");
         Jar(Path.Combine(instance, "mods", "signed.jar"), new() { ["META-INF/TEST.SF"] = "signature", ["assets/signed/lang/en_us.json"] = "{\"a\":\"Signed\"}" });
+        var guidePage = "---\nnavigation:\n  parent: index.md\n  title: Quantum Bridge\n---\n\n# The Bridge\n\nSee [the network](../net.md) for `ae2:cable` details.\n\n```\ncode stays\n```\n<GameScene zoom=\"4\" />\n";
+        Jar(Path.Combine(instance, "mods", "books.jar"), new()
+        {
+            ["assets/immersiveengineering/manual/en_us/wire.txt"] = "Redstone Wire\nGetting started\n<&coil>Wires carry signals.<np>\n<NEWLINE>\n",
+            ["assets/citadel/book/dict/en_us/turtle.txt"] = "A slow turtle.\n",
+            ["assets/citadel/book/dict/vi_vn/turtle.txt"] = "Bản dịch chính thức.\n",
+            ["assets/ae2/ae2guide/bridge.md"] = guidePage,
+            ["assets/ae2/ae2guide/_es_es/bridge.md"] = "Puente\n",
+        });
         var signedHash = await HashFileAsync(Path.Combine(instance, "mods", "signed.jar"), ct);
         var questPath = Path.Combine(instance, "config", "ftbquests", "quests", "chapters", "test.snbt");
         Directory.CreateDirectory(Path.GetDirectoryName(questPath)!);
@@ -210,6 +219,14 @@ public partial class Form1
         Check(ReadJar("one.jar", "assets/shared/lang/vi_vn.json").Contains("extra"), "fallback-only language keys merged");
         Check(ReadJar("legacy.jar", "assets/old/lang/vi_VN.lang").Contains("num=123"), "legacy JAR output retained");
         Check(await HashFileAsync(Path.Combine(instance, "mods", "signed.jar"), ct) == signedHash, "signed archive unchanged");
+        var manualPage = ReadJar("books.jar", "assets/immersiveengineering/manual/vi_vn/wire.txt");
+        Check(manualPage == "VI Redstone Wire\nVI Getting started\nVI <&coil>Wires carry signals.<np>\n<NEWLINE>\n", "IE manual page translated per line with tags kept");
+        Check(ReadJar("books.jar", "assets/citadel/book/dict/vi_vn/turtle.txt") == "Bản dịch chính thức.\n", "official book translation kept");
+        var guideVi = ReadJar("books.jar", "assets/ae2/ae2guide/_vi_vn/bridge.md");
+        Check(guideVi.Contains("  title: VI Quantum Bridge") && guideVi.Contains("  parent: index.md") && guideVi.Contains("# VI The Bridge")
+            && guideVi.Contains("](../net.md)") && guideVi.Contains("`ae2:cable`") && guideVi.Contains("code stays") && guideVi.Contains("<GameScene zoom=\"4\" />")
+            && !guideVi.Contains("VI code") && !guideVi.Contains("VI <Game"), "GuideME page: text translated, front matter keys, links, code and tags kept");
+        Check(PlainTextOutputRelative("assets/ae2/ae2guide/_es_es/bridge.md", "vi_vn") is null, "GuideME translations are not used as sources");
         using (var outer = ZipFile.OpenRead(Path.Combine(instance, "mods", "outer.jar")))
         using (var stream = outer.GetEntry("META-INF/jarjar/inner.jar")!.Open())
         using (var inner = new ZipArchive(stream, ZipArchiveMode.Read)) Check(inner.GetEntry("assets/nested/lang/vi_vn.json") is not null, "nested archive translated");

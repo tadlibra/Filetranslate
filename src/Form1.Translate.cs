@@ -101,13 +101,18 @@ public partial class Form1
                     var target = SafeChildPath(instancePath, targetRel);
                     var raw = await File.ReadAllTextAsync(file, ct);
                     var (original, statePath) = await ReadDocumentOriginalAsync(relative, staging, raw, ct);
+                    if (file != target && await IsForeignTranslationAsync(statePath, File.Exists(target) ? await File.ReadAllTextAsync(target, ct) : null, ct))
+                    {
+                        _coverage.Enqueue(new(targetRel, "existing-translation", 0, 0, "Kept an existing translation not written by this app."));
+                        return 0;
+                    }
                     var result = await TranslateDocumentAsync(relative, relative, original, staging, langCode, ct);
                     if (file != target || raw != result.Content)
                     {
                         // The checkpoint keeps the untranslated original, so a rerun retranslates from it and only
                         // the failed strings call the translator again (the rest come from the cache).
                         await WriteAtomicAsync(target, result.Content, true, ct);
-                        if (file == target) await SaveDocumentStateAsync(statePath, original, result.Content, ct);
+                        await SaveDocumentStateAsync(statePath, original, result.Content, ct);
                     }
                     return result.Errors;
                 }));
@@ -282,10 +287,16 @@ public partial class Form1
                         if (!documentTargets.Add(target)) continue;
                         var raw = await ReadEntryAsync(entry, ct);
                         var (original, statePath) = await ReadDocumentOriginalAsync(entryIdentity, staging, raw, ct);
+                        if (target != entryName && zip.GetEntry(target) is { } existingTarget
+                            && await IsForeignTranslationAsync(statePath, await ReadEntryAsync(existingTarget, ct), ct))
+                        {
+                            _coverage.Enqueue(new(identity + "!" + target, "existing-translation", 0, 0, "Kept an existing translation not written by this app."));
+                            continue;
+                        }
                         var result = await TranslateDocumentAsync(entryIdentity, entryName, original, staging, langCode, ct);
                         errors += result.Errors;
                         await ReplaceEntry(target, result.Content);
-                        if (target == entryName) pendingStates.Add((statePath, JsonSerializer.Serialize(new DocumentCheckpoint(original, ContentHash(result.Content)))));
+                        pendingStates.Add((statePath, JsonSerializer.Serialize(new DocumentCheckpoint(original, ContentHash(result.Content)))));
                     }
                     catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                     catch (NotSupportedException ex) { _coverage.Enqueue(new(entryIdentity, "manual-review", 0, 0, ex.Message)); }

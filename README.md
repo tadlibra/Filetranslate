@@ -28,6 +28,8 @@ Nếu Windows SmartScreen cảnh báo, chọn `More info` rồi `Run anyway`.
 - Ghi trực tiếp `vi_vn.json` vào modpack, không bắt buộc bật resource pack.
 - Backup jar trước khi inject: `*.jar.beeslator.bak`.
 - Dịch Patchouli books.
+- Dịch sổ tay Immersive Engineering, sách Citadel (Alex's Mobs...) và trang GuideME (AE2, ExtendedAE); giữ nguyên bản dịch chính thức nếu mod đã có.
+- Chuỗi dịch lỗi được giữ tiếng Anh, bấm dịch lại để dịch tiếp phần còn thiếu.
 - Dịch FTB Quests qua `config/ftbquests/quests/lang/vi_vn.json`.
 - Tự đặt `lang:vi_vn` trong `options.txt`.
 - Có nút dừng giữa quá trình.

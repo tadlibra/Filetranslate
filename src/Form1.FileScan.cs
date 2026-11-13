@@ -74,6 +74,7 @@ public partial class Form1
     private static string? DocumentOutputRelative(string path, string langFile)
     {
         path = NormalizePath(path);
+        if (PlainTextOutputRelative(path, langFile) is { } pageTarget) return pageTarget;
         var lower = path.ToLowerInvariant();
         if ((lower.StartsWith("kubejs/") || lower.Contains("/kubejs/")) && lower.EndsWith(".js")) return path;
         if (lower.Contains("triumph/script/") && lower.EndsWith(".txt")) return path;
