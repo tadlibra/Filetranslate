@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Form1.cs" Link="Form1.cs" />
+    <Compile Include="../../src/Form1.Types.cs" Link="Form1.Types.cs" />
+    <Compile Include="../../src/Form1.Config.cs" Link="Form1.Config.cs" />
+    <Compile Include="../../src/Form1.FileScan.cs" Link="Form1.FileScan.cs" />
+    <Compile Include="../../src/Form1.LangParsing.cs" Link="Form1.LangParsing.cs" />
+    <Compile Include="../../src/Form1.Minecraft.cs" Link="Form1.Minecraft.cs" />
+    <Compile Include="../../src/Form1.Translate.cs" Link="Form1.Translate.cs" />
+    <Compile Include="../../src/Form1.TranslateEntries.cs" Link="Form1.TranslateEntries.cs" />
+    <Compile Include="../../src/Form1.TranslatorApi.cs" Link="Form1.TranslatorApi.cs" />
+    <Compile Include="../../src/Form1.TranslatorParsing.cs" Link="Form1.TranslatorParsing.cs" />
+    <Compile Include="../../src/Form1.SafeFiles.cs" Link="Form1.SafeFiles.cs" />
+    <Compile Include="../../src/Form1.StructuredText.cs" Link="Form1.StructuredText.cs" />
+    <Compile Include="../../src/Form1.ScriptText.cs" Link="Form1.ScriptText.cs" />
+    <Compile Include="../../src/Form1.TranslationCache.cs" Link="Form1.TranslationCache.cs" />
+  </ItemGroup>
+</Project>

@@ -38,7 +38,7 @@ echo  [OK] Publish completed
 echo.
 
 echo  [3/4] Copying EXE to project root...
-copy /Y "bin\Release\net8.0-windows\win-x64\publish\Beeslater.exe" "Beeslater.exe" >nul
+copy /Y "src\bin\Release\net8.0-windows\win-x64\publish\Beeslater.exe" "Beeslater.exe" >nul
 if errorlevel 1 (
     echo  [ERROR] Could not copy Beeslater.exe to project root.
     pause

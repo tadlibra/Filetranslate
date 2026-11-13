@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -20,7 +21,7 @@ public partial class Form1
             if (!File.Exists(file)) continue;
             try
             {
-                var config = JsonSerializer.Deserialize<TranslatorSettingsFile>(File.ReadAllText(file));
+                var config = ReadTranslatorSettingsFile(file);
                 if (config is null || config.Provider == TranslatorProvider.Google) return null;
                 var normalized = NormalizeTranslatorConfig(config);
                 if (normalized is not null) return normalized;
@@ -41,7 +42,7 @@ public partial class Form1
             if (!File.Exists(file)) continue;
             try
             {
-                return JsonSerializer.Deserialize<TranslatorSettingsFile>(File.ReadAllText(file)) ?? new TranslatorSettingsFile();
+                return ReadTranslatorSettingsFile(file) ?? new TranslatorSettingsFile();
             }
             catch
             {
@@ -74,7 +75,40 @@ public partial class Form1
     private static void SaveTranslatorSettings(TranslatorSettingsFile settings)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(UserTranslatorConfigPath)!);
-        File.WriteAllText(UserTranslatorConfigPath, JsonSerializer.Serialize(settings, JsonOptions(true)), Encoding.UTF8);
+        var stored = new TranslatorSettingsFile
+        {
+            Provider = settings.Provider,
+            BaseUrl = settings.BaseUrl,
+            ApiKey = ProtectApiKey(settings.ApiKey),
+            Model = settings.Model,
+            FallbackToGoogle = settings.FallbackToGoogle
+        };
+        File.WriteAllText(UserTranslatorConfigPath, JsonSerializer.Serialize(stored, JsonOptions(true)), Encoding.UTF8);
+    }
+
+    private static TranslatorSettingsFile? ReadTranslatorSettingsFile(string file)
+    {
+        var config = JsonSerializer.Deserialize<TranslatorSettingsFile>(File.ReadAllText(file));
+        if (config is not null) config.ApiKey = UnprotectApiKey(config.ApiKey);
+        return config;
+    }
+
+    private const string ProtectedKeyPrefix = "dpapi:";
+
+    // DPAPI CurrentUser: config file copied to another user/machine cannot reveal the key.
+    private static string? ProtectApiKey(string? key)
+    {
+        if (string.IsNullOrEmpty(key) || key.StartsWith(ProtectedKeyPrefix, StringComparison.Ordinal)) return key;
+        var bytes = ProtectedData.Protect(Encoding.UTF8.GetBytes(key), null, DataProtectionScope.CurrentUser);
+        return ProtectedKeyPrefix + Convert.ToBase64String(bytes);
+    }
+
+    // Plain keys from older versions are still accepted and get encrypted on next save.
+    private static string? UnprotectApiKey(string? stored)
+    {
+        if (string.IsNullOrEmpty(stored) || !stored.StartsWith(ProtectedKeyPrefix, StringComparison.Ordinal)) return stored;
+        var bytes = ProtectedData.Unprotect(Convert.FromBase64String(stored[ProtectedKeyPrefix.Length..]), null, DataProtectionScope.CurrentUser);
+        return Encoding.UTF8.GetString(bytes);
     }
 
     private static AiTranslatorConfig? NormalizeTranslatorConfig(TranslatorSettingsFile config)
