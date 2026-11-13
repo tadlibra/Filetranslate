@@ -127,6 +127,7 @@ public partial class Form1
         ApplyActionButtonStyle(_startButton, Color.FromArgb(246, 190, 48), "BẮT ĐẦU DỊCH", 48, Color.FromArgb(28, 22, 7));
         _startButton.Width = 372;
         _startButton.Click += async (_, _) => await StartTranslateAsync();
+        FormClosed += (_, _) => StopLocalServer();
         left.Controls.Add(_startButton);
 
         ApplyActionButtonStyle(_stopButton, Color.FromArgb(116, 47, 31), "DỪNG LẠI", 42, Color.White);

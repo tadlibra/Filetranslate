@@ -121,7 +121,7 @@ public partial class Form1
         var translated = config.Provider switch
         {
             TranslatorProvider.AnthropicCompatible => await TranslateWithAnthropicCompatibleAsync(prompt, config, ct),
-            TranslatorProvider.OpenAiCompatible => await TranslateWithOpenAiCompatibleAsync(prompt, config, ct),
+            TranslatorProvider.OpenAiCompatible or TranslatorProvider.BuiltIn => await TranslateWithOpenAiCompatibleAsync(prompt, config, ct),
             TranslatorProvider.Gemini => await TranslateWithGeminiAsync(prompt, config, ct),
             TranslatorProvider.Ollama => await TranslateWithOllamaAsync(prompt, config, ct),
             _ => throw new InvalidOperationException("Unsupported AI provider.")

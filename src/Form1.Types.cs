@@ -16,7 +16,8 @@ public partial class Form1
         Gemini,
         OpenAiCompatible,
         AnthropicCompatible,
-        Ollama
+        Ollama,
+        BuiltIn
     }
 
     private sealed class TranslatorSettingsFile

@@ -11,7 +11,7 @@ public partial class Form1
         // An explicit Google selection must not fall through to unrelated credentials.
         if (File.Exists(UserTranslatorConfigPath) || File.Exists(LocalTranslatorConfigPath))
             return LoadUserTranslatorConfig();
-        return LoadClaudeSettingsConfig() ?? DetectLocalOllama();
+        return LoadClaudeSettingsConfig() ?? DetectLocalOllama() ?? InstalledBuiltInConfig();
     }
 
     // No saved choice: a running Ollama is free and unlimited, so prefer it over the rate-limited Google endpoint.
@@ -38,10 +38,18 @@ public partial class Form1
         return names.FirstOrDefault(n => n.StartsWith("qwen", StringComparison.OrdinalIgnoreCase)) ?? names.FirstOrDefault();
     }
 
+    private static AiTranslatorConfig? InstalledBuiltInConfig() =>
+        LocalModelPacks.FirstOrDefault(IsLocalModelInstalled) is { } pack ? BuiltInConfig(pack) : null;
+
+    private static AiTranslatorConfig BuiltInConfig(LocalModelPack pack) =>
+        new(TranslatorProvider.BuiltIn, new Uri(DefaultBaseUrl(TranslatorProvider.BuiltIn)), "", pack.Alias, true);
+
     private sealed record ProviderPreset(string Name, TranslatorProvider Provider, string BaseUrl, string Model, string? KeyUrl, string Note);
 
     private static readonly ProviderPreset[] ProviderPresets =
     [
+        new("Built-in - AI miễn phí chạy trên máy, không cần key", TranslatorProvider.BuiltIn, "", "", null,
+            "Tự tải llama.cpp và model Qwen3.5 (1,3-2,7 GB) một lần rồi dịch offline, không giới hạn. Tốc độ tùy GPU/CPU."),
         new("Ollama - chạy trên máy, không cần key", TranslatorProvider.Ollama, "http://localhost:11434", "qwen2.5:7b", "https://ollama.com/download",
             "Cài Ollama rồi chạy: ollama pull qwen2.5:7b. Miễn phí, không giới hạn, tốc độ tùy máy."),
         new("Qwen - Alibaba DashScope (quota free)", TranslatorProvider.OpenAiCompatible, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "qwen-plus", "https://modelstudio.console.alibabacloud.com/",
@@ -229,6 +237,7 @@ public partial class Form1
         TranslatorProvider.OpenAiCompatible => "https://api.openai.com",
         TranslatorProvider.AnthropicCompatible => "https://api.anthropic.com",
         TranslatorProvider.Ollama => "http://localhost:11434",
+        TranslatorProvider.BuiltIn => "http://127.0.0.1/v1",
         _ => ""
     };
 
@@ -238,6 +247,7 @@ public partial class Form1
         TranslatorProvider.OpenAiCompatible => "gpt-4o-mini",
         TranslatorProvider.AnthropicCompatible => "claude-3-5-haiku-latest",
         TranslatorProvider.Ollama => "qwen2.5:7b",
+        TranslatorProvider.BuiltIn => PickLocalModelPack((long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes).Alias,
         _ => ""
     };
 
