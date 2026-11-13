@@ -247,7 +247,7 @@ public partial class Form1
         TranslatorProvider.OpenAiCompatible => "gpt-4o-mini",
         TranslatorProvider.AnthropicCompatible => "claude-3-5-haiku-latest",
         TranslatorProvider.Ollama => "qwen2.5:7b",
-        TranslatorProvider.BuiltIn => PickLocalModelPack((long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes).Alias,
+        TranslatorProvider.BuiltIn => PickLocalModelPack(TotalRamBytes).Alias,
         _ => ""
     };
 
