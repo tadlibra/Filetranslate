@@ -6,7 +6,7 @@ Beeslater là ứng dụng Windows giúp dịch modpack Minecraft sang tiếng V
 
 Người dùng bình thường không cần cài .NET SDK và không cần build source.
 
-1. Tải `Beeslater.exe` từ trang Release.
+1. Tải `Beeslater.zip` từ trang Release (máy Windows ARM như Snapdragon: tải `Beeslater-arm64.zip`). Chạy trên Windows 10/11 64-bit, không cần cài .NET.
 2. Mở app.
 3. Chọn thư mục instance modpack.
 4. Cấu hình AI nếu muốn dùng Gemini, Claude/Claudible, OpenAI-compatible hoặc Ollama.
@@ -38,6 +38,8 @@ Nếu Windows SmartScreen cảnh báo, chọn `More info` rồi `Run anyway`.
 ## Cấu Hình AI
 
 **AI miễn phí có sẵn (không cần key):** lần đầu bấm `BẮT ĐẦU DỊCH` mà chưa cấu hình AI, app hỏi có cài AI chạy trên máy không. Chọn Yes: app tải [llama.cpp](https://github.com/ggml-org/llama.cpp) (38 MB) và model Qwen3.5 4B (2,7 GB; máy dưới 12 GB RAM dùng bản 2B 1,3 GB) vào `%LOCALAPPDATA%\Beeslator\local-ai`, kiểm tra SHA-256, rồi dịch offline, không giới hạn. Tốc độ tùy GPU: card rời nhanh, GPU tích hợp (Intel Iris Xe) chỉ khoảng 10 token/giây nên modpack lớn có thể mất nhiều giờ; dịch dở thì bấm lại để dịch tiếp.
+
+Yêu cầu của AI trên máy: Windows 64-bit (x64 hoặc ARM64), RAM từ 6 GB, ổ đĩa trống 1,5-3 GB. Máy thiếu Microsoft Visual C++ Runtime thì app tự tải bản chính thức (kiểm tra chữ ký Microsoft) và cài, Windows sẽ hỏi quyền. GPU không chạy được (driver cũ, không có Vulkan) thì tự chuyển sang CPU. Hugging Face bị chặn thì tải qua mirror, file vẫn được kiểm tra SHA-256. Đo trên laptop Intel Iris Xe 16 GB: bản 4B khoảng 3 giây/chuỗi, dịch đúng phần lớn nhưng vẫn có lỗi nghĩa với từ hiếm; card rời nhanh hơn nhiều.
 
 Trong `CẤU HÌNH AI` có mục `Mẫu miễn phí` để chọn nhanh: Built-in, Ollama, Qwen (DashScope), Groq, OpenRouter `:free`, Gemini, Pollinations. Các dịch vụ online cần bạn tự tạo key miễn phí; app không gắn sẵn key dùng chung.
 

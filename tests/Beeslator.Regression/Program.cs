@@ -179,6 +179,16 @@ public partial class Form1
             && PickOllamaModel("{\"models\":[]}") is null, "Ollama model pick prefers Qwen and skips embedding models");
         Check(DetectLocalOllama("http://127.0.0.1:9") is null, "no local Ollama means no auto config");
         Check(PickLocalModelPack(16L << 30).Alias == "qwen3.5-4b" && PickLocalModelPack(8L << 30).Alias == "qwen3.5-2b", "built-in model picked by RAM");
+        var arch = System.Runtime.InteropServices.Architecture.X64;
+        var small = LocalModelPacks[1];
+        Check(LocalAiBlocker(small, 4L << 30, long.MaxValue, arch)!.Contains("RAM")
+            && LocalAiBlocker(small, 16L << 30, 100_000_000, arch)!.Contains("Ổ đĩa")
+            && LocalAiBlocker(small, 16L << 30, long.MaxValue, System.Runtime.InteropServices.Architecture.X86)!.Contains("64-bit")
+            && LocalAiBlocker(small, 8L << 30, long.MaxValue, System.Runtime.InteropServices.Architecture.Arm64) is null, "built-in AI preflight: RAM, disk, architecture");
+        var dotnetHost = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "dotnet.exe");
+        var unsigned = Path.Combine(root, "unsigned.exe");
+        await File.WriteAllBytesAsync(unsigned, [0x4D, 0x5A, 0, 0], ct);
+        Check((!File.Exists(dotnetHost) || IsSignedByMicrosoft(dotnetHost)) && !IsSignedByMicrosoft(unsigned), "Authenticode check accepts Microsoft-signed, rejects unsigned");
         var savedConfig = form._aiConfig;
         form._aiConfig = BuiltInConfig(LocalModelPacks[1]) with { BaseUrl = new Uri("https://test.invalid/gateway/v1") };
         Check((await form.TranslateBatchAsync(["Built-in text"], "vi", "auto", ct)).Values[0] == "VI Built-in text", "built-in provider uses the OpenAI-compatible endpoint");

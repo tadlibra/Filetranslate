@@ -15,14 +15,20 @@ public partial class Form1
             Log("Không tìm thấy thư mục modpack (mods/config/kubejs/resourcepacks).");
             return;
         }
-        if (_aiConfig is null && MessageBox.Show(this,
-                "Chưa có AI để dịch. Google miễn phí sẽ bị chặn với modpack lớn.\n\n" +
-                "Cài AI miễn phí chạy trên máy? App tải llama.cpp và model Qwen3.5 (1,3-2,7 GB) một lần, sau đó dịch offline, không cần key.\n\n" +
-                "Chọn No để tiếp tục với Google.", "AI miễn phí", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+        if (_aiConfig is null)
         {
-            var pack = PickLocalModelPack((long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes);
-            SaveTranslatorSettings(new TranslatorSettingsFile { Provider = TranslatorProvider.BuiltIn, BaseUrl = DefaultBaseUrl(TranslatorProvider.BuiltIn), Model = pack.Alias, FallbackToGoogle = true });
-            _aiConfig = LoadAiTranslatorConfig();
+            var pack = PickLocalModelPack(TotalRamBytes);
+            if (LocalAiBlocker(pack, TotalRamBytes, FreeDiskBytes(), System.Runtime.InteropServices.RuntimeInformation.OSArchitecture) is { } blocker)
+                MessageBox.Show(this, "Chưa có AI để dịch, và máy này chưa chạy được AI miễn phí trên máy:\n" + blocker +
+                    "\n\nApp sẽ tiếp tục với Google Translate (có thể bị giới hạn).", "AI miễn phí", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            else if (MessageBox.Show(this,
+                    "Chưa có AI để dịch. Google miễn phí sẽ bị chặn với modpack lớn.\n\n" +
+                    $"Cài AI miễn phí chạy trên máy? App tải llama.cpp và {pack.Label} một lần, sau đó dịch offline, không cần key.\n\n" +
+                    "Chọn No để tiếp tục với Google.", "AI miễn phí", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                SaveTranslatorSettings(new TranslatorSettingsFile { Provider = TranslatorProvider.BuiltIn, BaseUrl = DefaultBaseUrl(TranslatorProvider.BuiltIn), Model = pack.Alias, FallbackToGoogle = true });
+                _aiConfig = LoadAiTranslatorConfig();
+            }
         }
         var (langCode, langFile) = Languages[_langBox.Text];
         _resetTranslations = _resetBox.Checked;

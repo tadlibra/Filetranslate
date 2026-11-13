@@ -25,6 +25,9 @@ jobs:
       - name: Build
         run: dotnet build src/Filetranslate.csproj -c Release
 
+      - name: Build ARM64
+        run: dotnet build src/Filetranslate.csproj -c Release -r win-arm64 --self-contained true
+
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
@@ -37,15 +40,22 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Publish single-file EXE
-        run: dotnet publish src/Filetranslate.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true -o publish
+      - name: Publish single-file EXE (x64 and ARM64)
+        shell: pwsh
+        run: |
+          foreach ($rid in 'win-x64', 'win-arm64') {
+            dotnet publish src/Filetranslate.csproj -c Release -r $rid --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true -o "publish/$rid"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Zip
         shell: pwsh
-        run: Compress-Archive -Path publish/Beeslater.exe -DestinationPath Beeslater.zip
+        run: |
+          Compress-Archive -Path publish/win-x64/Beeslater.exe -DestinationPath Beeslater.zip
+          Compress-Archive -Path publish/win-arm64/Beeslater.exe -DestinationPath Beeslater-arm64.zip
 
       - name: Create GitHub release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" Beeslater.zip --title "${{ github.ref_name }}" --generate-notes
+        run: gh release create "${{ github.ref_name }}" Beeslater.zip Beeslater-arm64.zip --title "${{ github.ref_name }}" --generate-notes
