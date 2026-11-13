@@ -178,6 +178,11 @@ public partial class Form1
             && PickOllamaModel("{\"models\":[{\"name\":\"nomic-embed-text\"},{\"name\":\"llama3.2\"}]}") == "llama3.2"
             && PickOllamaModel("{\"models\":[]}") is null, "Ollama model pick prefers Qwen and skips embedding models");
         Check(DetectLocalOllama("http://127.0.0.1:9") is null, "no local Ollama means no auto config");
+        Check(PickLocalModelPack(16L << 30).Alias == "qwen3.5-4b" && PickLocalModelPack(8L << 30).Alias == "qwen3.5-2b", "built-in model picked by RAM");
+        var savedConfig = form._aiConfig;
+        form._aiConfig = BuiltInConfig(LocalModelPacks[1]) with { BaseUrl = new Uri("https://test.invalid/gateway/v1") };
+        Check((await form.TranslateBatchAsync(["Built-in text"], "vi", "auto", ct)).Values[0] == "VI Built-in text", "built-in provider uses the OpenAI-compatible endpoint");
+        form._aiConfig = savedConfig;
         Check(ProviderPresets.All(p => p.Provider != TranslatorProvider.OpenAiCompatible
                 || ApiEndpoint(new Uri(p.BaseUrl), "v1/chat/completions").AbsolutePath.EndsWith("/v1/chat/completions")), "preset endpoints resolve to chat completions");
         var aiConfig = form._aiConfig;
@@ -202,6 +207,13 @@ public partial class Form1
         Jar(Path.Combine(instance, "mods", "one.jar"), new() { ["assets/shared/lang/en_us.json"] = "{\"same\":\"First\"}", ["assets/shared/lang/zh_cn.json"] = "{\"extra\":\"额外\"}", ["assets/shared/lang/ko_kr.json"] = "broken" });
         Jar(Path.Combine(instance, "mods", "two.jar"), new() { ["assets/shared/lang/en_us.json"] = "{\"same\":\"Second\"}" });
         Jar(Path.Combine(instance, "mods", "legacy.jar"), new() { ["assets/old/lang/en_US.lang"] = "a=Old text\nnum=123\n" });
+        Jar(Path.Combine(instance, "mods", "partial.jar"), new()
+        {
+            ["assets/part/lang/en_us.json"] = "{\"a\":\"Shipped\",\"b\":\"Missing\"}",
+            ["assets/part/lang/vi_vn.json"] = "{\"a\":\"Có sẵn\"}",
+            ["data/part/advancements/root.json"] = "{\"display\":{\"title\":\"Getting Started\",\"description\":\"Open the book\"},\"criteria\":{}}",
+            ["data/part/advancements/recipes/plain.json"] = "{\"criteria\":{\"has\":{\"trigger\":\"minecraft:inventory_changed\"}}}",
+        });
         var nested = Path.Combine(root, "inner.jar");
         Jar(nested, new() { ["assets/nested/lang/en_us.json"] = "{\"a\":\"Nested\"}" });
         using (var outer = ZipFile.Open(Path.Combine(instance, "mods", "outer.jar"), ZipArchiveMode.Create)) outer.CreateEntryFromFile(nested, "META-INF/jarjar/inner.jar");
@@ -230,6 +242,10 @@ public partial class Form1
         Check(ReadJar("one.jar", "assets/shared/lang/vi_vn.json").Contains("extra"), "fallback-only language keys merged");
         Check(ReadJar("legacy.jar", "assets/old/lang/vi_VN.lang").Contains("num=123"), "legacy JAR output retained");
         Check(await HashFileAsync(Path.Combine(instance, "mods", "signed.jar"), ct) == signedHash, "signed archive unchanged");
+        var partialVi = ParseLangJson(ReadJar("partial.jar", "assets/part/lang/vi_vn.json"));
+        Check(partialVi["a"] == "Có sẵn" && partialVi["b"] == "VI Missing", "jar with a shipped partial vi_vn gets the missing keys");
+        Check(ReadJar("partial.jar", "data/part/advancements/root.json").Contains("VI Getting Started")
+            && ReadJar("partial.jar", "data/part/advancements/recipes/plain.json").Contains("inventory_changed"), "in-jar advancement text rewritten, data-only advancement untouched");
         var manualPage = ReadJar("books.jar", "assets/immersiveengineering/manual/vi_vn/wire.txt");
         Check(manualPage == "VI Redstone Wire\nVI Getting started\nVI <&coil>Wires carry signals.<np>\n<NEWLINE>\n", "IE manual page translated per line with tags kept");
         Check(ReadJar("books.jar", "assets/citadel/book/dict/vi_vn/turtle.txt") == "Bản dịch chính thức.\n", "official book translation kept");
@@ -280,6 +296,11 @@ public partial class Form1
         using var form = new Form1(new HttpClient { Timeout = TimeSpan.FromSeconds(60) });
         SynchronizationContext.SetSynchronizationContext(null);
         form._aiConfig = LoadAiTranslatorConfig();
+        if (jarNames[0].StartsWith("--builtin=", StringComparison.Ordinal))
+        {
+            form._aiConfig = BuiltInConfig(FindLocalModelPack(jarNames[0]["--builtin=".Length..]) ?? throw new ArgumentException("unknown built-in model"));
+            jarNames = jarNames[1..];
+        }
         var root = Path.GetFullPath(Path.Combine("obj", "pack-sample", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(Path.Combine(root, "mods"));
         foreach (var name in jarNames) File.Copy(Path.Combine(sourceInstance, "mods", name), Path.Combine(root, "mods", name));
@@ -308,6 +329,7 @@ public partial class Form1
             }
             Console.WriteLine($"  {name}: {target}/{source} keys written, {same} still English");
         }
+        form.StopLocalServer();
     }
 
     private static async Task RunLiveSampleAsync(string sourceInstance)

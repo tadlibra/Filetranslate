@@ -37,6 +37,10 @@ Nếu Windows SmartScreen cảnh báo, chọn `More info` rồi `Run anyway`.
 
 ## Cấu Hình AI
 
+**AI miễn phí có sẵn (không cần key):** lần đầu bấm `BẮT ĐẦU DỊCH` mà chưa cấu hình AI, app hỏi có cài AI chạy trên máy không. Chọn Yes: app tải [llama.cpp](https://github.com/ggml-org/llama.cpp) (38 MB) và model Qwen3.5 4B (2,7 GB; máy dưới 12 GB RAM dùng bản 2B 1,3 GB) vào `%LOCALAPPDATA%\Beeslator\local-ai`, kiểm tra SHA-256, rồi dịch offline, không giới hạn. Tốc độ tùy GPU: card rời nhanh, GPU tích hợp (Intel Iris Xe) chỉ khoảng 10 token/giây nên modpack lớn có thể mất nhiều giờ; dịch dở thì bấm lại để dịch tiếp.
+
+Trong `CẤU HÌNH AI` có mục `Mẫu miễn phí` để chọn nhanh: Built-in, Ollama, Qwen (DashScope), Groq, OpenRouter `:free`, Gemini, Pollinations. Các dịch vụ online cần bạn tự tạo key miễn phí; app không gắn sẵn key dùng chung.
+
 Trong app bấm `CẤU HÌNH AI`, chọn provider rồi nhập API key/model của bạn.
 
 Config được lưu local trên máy người dùng:

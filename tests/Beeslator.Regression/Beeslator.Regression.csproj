@@ -20,6 +20,7 @@
     <Compile Include="../../src/Form1.SafeFiles.cs" Link="Form1.SafeFiles.cs" />
     <Compile Include="../../src/Form1.StructuredText.cs" Link="Form1.StructuredText.cs" />
     <Compile Include="../../src/Form1.PlainText.cs" Link="Form1.PlainText.cs" />
+    <Compile Include="../../src/Form1.LocalModel.cs" Link="Form1.LocalModel.cs" />
     <Compile Include="../../src/Form1.ScriptText.cs" Link="Form1.ScriptText.cs" />
     <Compile Include="../../src/Form1.TranslationCache.cs" Link="Form1.TranslationCache.cs" />
   </ItemGroup>

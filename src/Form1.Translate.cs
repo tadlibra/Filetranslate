@@ -15,6 +15,15 @@ public partial class Form1
             Log("Không tìm thấy thư mục modpack (mods/config/kubejs/resourcepacks).");
             return;
         }
+        if (_aiConfig is null && MessageBox.Show(this,
+                "Chưa có AI để dịch. Google miễn phí sẽ bị chặn với modpack lớn.\n\n" +
+                "Cài AI miễn phí chạy trên máy? App tải llama.cpp và model Qwen3.5 (1,3-2,7 GB) một lần, sau đó dịch offline, không cần key.\n\n" +
+                "Chọn No để tiếp tục với Google.", "AI miễn phí", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+        {
+            var pack = PickLocalModelPack((long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes);
+            SaveTranslatorSettings(new TranslatorSettingsFile { Provider = TranslatorProvider.BuiltIn, BaseUrl = DefaultBaseUrl(TranslatorProvider.BuiltIn), Model = pack.Alias, FallbackToGoogle = true });
+            _aiConfig = LoadAiTranslatorConfig();
+        }
         var (langCode, langFile) = Languages[_langBox.Text];
         _resetTranslations = _resetBox.Checked;
         _cts = new CancellationTokenSource();
@@ -55,6 +64,7 @@ public partial class Form1
         _googleNextRequest = DateTime.MinValue;
         if (_aiConfig is null)
             Log("Chưa cấu hình AI: dùng Google Translate miễn phí, sẽ bị giới hạn với modpack lớn. Nên cấu hình AI trong CẤU HÌNH AI để dịch đủ.");
+        await PrepareBuiltInAsync(ct);
         Log("Quét JAR/ZIP, lang, Patchouli, nhiệm vụ và datapack. Mỗi file được backup trước khi thay thế.");
         try
         {
@@ -177,7 +187,11 @@ public partial class Form1
 
     private static async Task<string> ReadEntryAsync(ZipArchiveEntry entry, CancellationToken ct)
     {
-        if (entry.Length > MaxTextBytes) throw new IOException($"Text entry exceeds 16 MiB: {entry.FullName}");
+        // In update mode Length throws once the entry has been opened; the size was checked on that first read.
+        long length;
+        try { length = entry.Length; }
+        catch (InvalidOperationException) { length = 0; }
+        if (length > MaxTextBytes) throw new IOException($"Text entry exceeds 16 MiB: {entry.FullName}");
         using var reader = new StreamReader(entry.Open(), Utf8NoBom, true);
         return await reader.ReadToEndAsync(ct);
     }

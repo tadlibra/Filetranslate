@@ -50,8 +50,8 @@ public partial class Form1
             {
                 modelBox.Text = DefaultModel(provider);
             }
-            apiKeyBox.Enabled = provider is not TranslatorProvider.Google and not TranslatorProvider.Ollama;
-            baseUrlBox.Enabled = provider is not TranslatorProvider.Google;
+            apiKeyBox.Enabled = provider is not TranslatorProvider.Google and not TranslatorProvider.Ollama and not TranslatorProvider.BuiltIn;
+            baseUrlBox.Enabled = provider is not TranslatorProvider.Google and not TranslatorProvider.BuiltIn;
             modelBox.Enabled = provider is not TranslatorProvider.Google;
         }
 
@@ -73,8 +73,8 @@ public partial class Form1
             if (presetBox.SelectedIndex <= 0) { presetNote.Text = ""; keyLink.Visible = false; return; }
             var preset = ProviderPresets[presetBox.SelectedIndex - 1];
             providerBox.SelectedItem = preset.Provider.ToString();
-            baseUrlBox.Text = preset.BaseUrl;
-            modelBox.Text = preset.Model;
+            baseUrlBox.Text = preset.Provider == TranslatorProvider.BuiltIn ? DefaultBaseUrl(preset.Provider) : preset.BaseUrl;
+            modelBox.Text = preset.Provider == TranslatorProvider.BuiltIn ? DefaultModel(preset.Provider) : preset.Model;
             presetNote.Text = preset.Note;
             keyLink.Tag = preset.KeyUrl;
             keyLink.Visible = preset.KeyUrl is not null;
@@ -134,6 +134,7 @@ public partial class Form1
             FallbackToGoogle = fallbackBox.Checked
         };
         SaveTranslatorSettings(settings);
+        StopLocalServer();
         _aiConfig = LoadAiTranslatorConfig();
         Log(_aiConfig is null
             ? "Đã lưu cấu hình: dùng Google Translate fallback."
