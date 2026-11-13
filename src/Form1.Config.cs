@@ -11,8 +11,50 @@ public partial class Form1
         // An explicit Google selection must not fall through to unrelated credentials.
         if (File.Exists(UserTranslatorConfigPath) || File.Exists(LocalTranslatorConfigPath))
             return LoadUserTranslatorConfig();
-        return LoadClaudeSettingsConfig();
+        return LoadClaudeSettingsConfig() ?? DetectLocalOllama();
     }
+
+    // No saved choice: a running Ollama is free and unlimited, so prefer it over the rate-limited Google endpoint.
+    private static AiTranslatorConfig? DetectLocalOllama(string baseUrl = "http://localhost:11434")
+    {
+        try
+        {
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
+            var json = client.GetStringAsync(baseUrl.TrimEnd('/') + "/api/tags").GetAwaiter().GetResult();
+            var model = PickOllamaModel(json);
+            return model is null ? null : new AiTranslatorConfig(TranslatorProvider.Ollama, new Uri(baseUrl), "", model, true);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException) { return null; }
+    }
+
+    private static string? PickOllamaModel(string tagsJson)
+    {
+        using var doc = JsonDocument.Parse(tagsJson);
+        var names = doc.RootElement.TryGetProperty("models", out var models) && models.ValueKind == JsonValueKind.Array
+            ? models.EnumerateArray().Select(m => m.TryGetProperty("name", out var n) ? n.GetString() : null).OfType<string>().ToList()
+            : [];
+        // Embedding models cannot chat; Qwen handles Vietnamese well among common local models.
+        names = names.Where(n => !n.Contains("embed", StringComparison.OrdinalIgnoreCase)).ToList();
+        return names.FirstOrDefault(n => n.StartsWith("qwen", StringComparison.OrdinalIgnoreCase)) ?? names.FirstOrDefault();
+    }
+
+    private sealed record ProviderPreset(string Name, TranslatorProvider Provider, string BaseUrl, string Model, string? KeyUrl, string Note);
+
+    private static readonly ProviderPreset[] ProviderPresets =
+    [
+        new("Ollama - chạy trên máy, không cần key", TranslatorProvider.Ollama, "http://localhost:11434", "qwen2.5:7b", "https://ollama.com/download",
+            "Cài Ollama rồi chạy: ollama pull qwen2.5:7b. Miễn phí, không giới hạn, tốc độ tùy máy."),
+        new("Qwen - Alibaba DashScope (quota free)", TranslatorProvider.OpenAiCompatible, "https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "qwen-plus", "https://modelstudio.console.alibabacloud.com/",
+            "Tài khoản mới có quota token miễn phí. Tạo API key trong Model Studio."),
+        new("Groq (key free)", TranslatorProvider.OpenAiCompatible, "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", "https://console.groq.com/keys",
+            "Key miễn phí, nhanh; có giới hạn request mỗi phút/ngày."),
+        new("OpenRouter - model :free (key free)", TranslatorProvider.OpenAiCompatible, "https://openrouter.ai/api/v1", "google/gemma-4-31b-it:free", "https://openrouter.ai/keys",
+            "Key miễn phí; model đuôi :free có giới hạn request mỗi ngày. Danh sách model free thay đổi theo thời gian."),
+        new("Gemini (key free)", TranslatorProvider.Gemini, "https://generativelanguage.googleapis.com", "gemini-2.5-flash", "https://aistudio.google.com/apikey",
+            "Key miễn phí từ Google AI Studio; có giới hạn request mỗi phút/ngày."),
+        new("Pollinations - không cần key (rất chậm)", TranslatorProvider.OpenAiCompatible, "https://text.pollinations.ai/openai", "openai", null,
+            "Không cần key nhưng chỉ 1 lần trả lời mỗi 45 giây; modpack lớn mất nhiều giờ."),
+    ];
 
     private static AiTranslatorConfig? LoadUserTranslatorConfig()
     {

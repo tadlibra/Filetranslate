@@ -287,7 +287,8 @@ public partial class Form1
 
     private static void EnsureSuccess(HttpResponseMessage response)
     {
-        if ((int)response.StatusCode == 429)
+        // 402 is Pollinations' free-tier limit; it carries Retry-After like a 429.
+        if ((int)response.StatusCode == 429 || (int)response.StatusCode == 402 && response.Headers.RetryAfter is not null)
             throw new RateLimitedException(response.Headers.RetryAfter?.Delta
                 ?? (response.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.UtcNow : null));
         response.EnsureSuccessStatusCode();
