@@ -34,6 +34,7 @@ public partial class Form1
         public bool CorruptTokens;
         public string? FailText;
         public int RateLimitResponses;
+        public HttpStatusCode RateLimitStatus = HttpStatusCode.TooManyRequests;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -44,7 +45,7 @@ public partial class Form1
             if (RateLimitResponses > 0)
             {
                 RateLimitResponses--;
-                var limited = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                var limited = new HttpResponseMessage(RateLimitStatus);
                 limited.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero);
                 return limited;
             }
@@ -169,6 +170,16 @@ public partial class Form1
         fake.RateLimitResponses = 2;
         var limited = await form.TranslateBatchAsync(["Rate limited text"], "vi", "auto", ct);
         Check(limited.Errors == 0 && limited.Values[0] == "VI Rate limited text" && fake.RateLimitResponses == 0, "AI 429 waits for Retry-After and retries");
+        fake.RateLimitStatus = HttpStatusCode.PaymentRequired;
+        fake.RateLimitResponses = 1;
+        Check((await form.TranslateBatchAsync(["Free tier text"], "vi", "auto", ct)).Values[0] == "VI Free tier text", "Pollinations 402 with Retry-After is retried");
+        fake.RateLimitStatus = HttpStatusCode.TooManyRequests;
+        Check(PickOllamaModel("{\"models\":[{\"name\":\"nomic-embed-text\"},{\"name\":\"llama3.2\"},{\"name\":\"qwen2.5:7b\"}]}") == "qwen2.5:7b"
+            && PickOllamaModel("{\"models\":[{\"name\":\"nomic-embed-text\"},{\"name\":\"llama3.2\"}]}") == "llama3.2"
+            && PickOllamaModel("{\"models\":[]}") is null, "Ollama model pick prefers Qwen and skips embedding models");
+        Check(DetectLocalOllama("http://127.0.0.1:9") is null, "no local Ollama means no auto config");
+        Check(ProviderPresets.All(p => p.Provider != TranslatorProvider.OpenAiCompatible
+                || ApiEndpoint(new Uri(p.BaseUrl), "v1/chat/completions").AbsolutePath.EndsWith("/v1/chat/completions")), "preset endpoints resolve to chat completions");
         var aiConfig = form._aiConfig;
         form._aiConfig = null;
         fake.RateLimitResponses = GoogleMaxStrikes;
