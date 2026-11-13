@@ -10,4 +10,4 @@ echo  Sua code roi Ctrl+S -^> app tu build lai va mo lai.
 echo  Nhan Ctrl+C 2 lan de thoat.
 echo.
 
-dotnet watch run -c Debug
+dotnet watch run --project src/Filetranslate.csproj -c Debug

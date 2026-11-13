@@ -68,11 +68,19 @@ build.bat
 Hoặc:
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
+dotnet publish src/Filetranslate.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 File build nằm tại:
 
 ```text
-bin\Release\net8.0-windows\win-x64\publish\Beeslater.exe
+src\bin\Release\net8.0-windows\win-x64\publish\Beeslater.exe
 ```
+
+Chạy regression test (CI cũng chạy lệnh này mỗi lần push):
+
+```powershell
+dotnet run --project tests/Beeslator.Regression
+```
+
+Push tag `v*` (ví dụ `v2.1`) thì GitHub Actions tự build và tạo Release kèm `Beeslater.zip`.
