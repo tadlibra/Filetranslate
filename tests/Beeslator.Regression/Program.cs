@@ -77,12 +77,23 @@ public partial class Form1
     internal static async Task RunChecksAsync(string[] args)
     {
         if (args.Length >= 2 && args[0] == "--live") { await RunLiveSampleAsync(args[1]); return; }
+        if (args.Length >= 2 && args[0] == "--glossary")
+        {
+            using var g = new Form1(new HttpClient());
+            g._glossary = g.LoadVanillaGlossary(args[1], "vi_vn");
+            Console.WriteLine($"glossary: {g._glossary?.Count ?? 0} entries");
+            foreach (var term in new[] { "Tube Coral", "Iron Ingot", "Pineapple", "Diamond Sword", "Done" })
+                Console.WriteLine($"  {term} -> {(g._glossary?.GetValueOrDefault(term) ?? "(none)")}");
+            Console.WriteLine("  hint: " + g.GlossaryHint(["Craft a Tube Coral Block with an Iron Ingot", "Golden Jellyfish Net"]));
+            return;
+        }
         if (args.Length >= 3 && args[0] == "--pack") { await RunPackSampleAsync(args[1], args[2..]); return; }
         var root = Path.GetFullPath(Path.Combine("obj", "regression", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(root);
         using var fake = new FakeTranslator();
         using var form = new Form1(new HttpClient(fake));
         SynchronizationContext.SetSynchronizationContext(null);
+        form._loadVanillaGlossary = false;
         form._aiConfig = new(TranslatorProvider.OpenAiCompatible, new Uri("https://test.invalid/gateway/v1"), "test", "test", false);
         var ct = CancellationToken.None;
         var input = "§6Sword %1$s $(l:test/page)Click$() ${player} {count} minecraft:stone https://example.org\nNext";
@@ -189,6 +200,19 @@ public partial class Form1
         var unsigned = Path.Combine(root, "unsigned.exe");
         await File.WriteAllBytesAsync(unsigned, [0x4D, 0x5A, 0, 0], ct);
         Check((!File.Exists(dotnetHost) || IsSignedByMicrosoft(dotnetHost)) && !IsSignedByMicrosoft(unsigned), "Authenticode check accepts Microsoft-signed, rejects unsigned");
+        var glossary = BuildGlossary(
+            "{\"a\":\"Tube Coral\",\"b\":\"Tube Coral Block\",\"c\":\"Open\",\"d\":\"Open\",\"e\":\"%s wins\",\"f\":\"Same\"}",
+            "{\"a\":\"San hô ống\",\"b\":\"Khối san hô ống\",\"c\":\"Mở\",\"d\":\"Mở ra\",\"e\":\"%s thắng\",\"f\":\"Same\"}");
+        Check(glossary.Count == 2 && glossary["tube coral"] == "San hô ống" && !glossary.ContainsKey("Open") && !glossary.ContainsKey("%s wins"),
+            "glossary keeps plain names, drops ambiguous terms and placeholders");
+        var savedGlossary = form._glossary;
+        form._glossary = glossary;
+        calls = fake.Calls;
+        var exact = await form.TranslateBatchAsync(["§6Tube Coral", "TUBE CORAL"], "vi", "auto", ct);
+        Check(exact.Values[0] == "§6San hô ống" && exact.Values[1] == "SAN HÔ ỐNG" && fake.Calls == calls, "exact glossary match skips the translator");
+        Check(form.GlossaryHint(["Place a Tube Coral Block"]) == "Tube Coral Block = Khối san hô ống; Tube Coral = San hô ống", "glossary hint lists longest terms first");
+        Check(BuildAiTranslatePrompt(["x"], "vi", "en", null, "Tube Coral = San hô ống").Contains("Tube Coral = San hô ống"), "glossary terms reach the AI prompt");
+        form._glossary = savedGlossary;
         var savedConfig = form._aiConfig;
         form._aiConfig = BuiltInConfig(LocalModelPacks[1]) with { BaseUrl = new Uri("https://test.invalid/gateway/v1") };
         Check((await form.TranslateBatchAsync(["Built-in text"], "vi", "auto", ct)).Values[0] == "VI Built-in text", "built-in provider uses the OpenAI-compatible endpoint");

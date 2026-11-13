@@ -25,7 +25,7 @@ public partial class Form1
         var unresolved = new List<int>();
         for (var i = 0; i < texts.Count; i++)
         {
-            if (TryKnownTranslation(texts[i], target, out var known)) knownValues[i] = known;
+            if (TryKnownTranslation(texts[i], target, out var known) || TryGlossaryTranslation(texts[i], out known)) knownValues[i] = known;
             else unresolved.Add(i);
         }
         if (unresolved.Count != texts.Count)
@@ -117,7 +117,7 @@ public partial class Form1
             tokenMaps.Add(tokens);
         }
 
-        var prompt = BuildAiTranslatePrompt(protectedTexts, target, source, context);
+        var prompt = BuildAiTranslatePrompt(protectedTexts, target, source, context, GlossaryHint(texts));
         var translated = config.Provider switch
         {
             TranslatorProvider.AnthropicCompatible => await TranslateWithAnthropicCompatibleAsync(prompt, config, ct),
