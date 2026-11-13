@@ -104,7 +104,8 @@ public partial class Form1
     {
         var triumph = NormalizePath(path).Contains("triumph/script/", StringComparison.OrdinalIgnoreCase) && path.EndsWith(".txt", StringComparison.OrdinalIgnoreCase);
         var script = path.EndsWith(".js", StringComparison.OrdinalIgnoreCase) || triumph;
-        var allTargets = triumph ? SelectTriumphStrings(raw) : script ? SelectScriptStrings(raw, "vi_vn") : SelectDocumentStrings(path, raw);
+        var textPage = IsPlainTextPage(path);
+        var allTargets = textPage ? SelectPlainTextLines(path, raw) : triumph ? SelectTriumphStrings(raw) : script ? SelectScriptStrings(raw, "vi_vn") : SelectDocumentStrings(path, raw);
         var targets = allTargets.Where(t => t.Field != "__target_locale").ToList();
         var values = targets.Select(x => x.Value).ToList();
         var errors = 0;
@@ -112,7 +113,7 @@ public partial class Form1
         for (var i = 0; i < targets.Count; i++)
         {
             var value = targets[i].Value.Trim();
-            if (value.StartsWith('{') || value.StartsWith('['))
+            if (!textPage && (value.StartsWith('{') || value.StartsWith('[')))
             {
                 try
                 {
@@ -142,7 +143,7 @@ public partial class Form1
             _ = ReadScriptTokens(content);
             _coverage.Enqueue(new(identity, "manual-review", 0, 0, "Script: only supported literal text calls were handled; dynamic expressions need review."));
         }
-        else _ = new StructuredTextReader(content).Read();
+        else if (!textPage) _ = new StructuredTextReader(content).Read();
         return (content, errors + result.Errors);
     }
 

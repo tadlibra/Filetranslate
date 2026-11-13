@@ -167,7 +167,8 @@ Input JSON array:
     }
 
     private static readonly Regex ProtectedTokenRegex = new(
-        @"(?:&|§)[kK][^\r\n]*?(?:&|§)[rR]|\$\([^\r\n)]*\)|\$\{[^}\r\n]+\}|\{[A-Za-z0-9_.:, -]+\}|%(?:\d+\$)?[-#+ 0,(<]*\d*(?:\.\d+)?(?:[tT][A-Za-z]|[A-Za-z%])|(?:&|§)(?:#[0-9a-fA-F]{6}|[0-9a-fA-Fk-oK-OrRxXzZ])|https?://[^\s<>""']+|\b[a-z0-9_.-]+:[a-z0-9_./-]+|<[^>\r\n]{1,200}>|\\[nrt]|\r\n|\n|\r",
+        @"\]\([^)\s]*\)|`[^`
+]+`|(?:&|§)[kK][^\r\n]*?(?:&|§)[rR]|\$\([^\r\n)]*\)|\$\{[^}\r\n]+\}|\{[A-Za-z0-9_.:, -]+\}|%(?:\d+\$)?[-#+ 0,(<]*\d*(?:\.\d+)?(?:[tT][A-Za-z]|[A-Za-z%])|(?:&|§)(?:#[0-9a-fA-F]{6}|[0-9a-fA-Fk-oK-OrRxXzZ])|https?://[^\s<>""']+|\b[a-z0-9_.-]+:[a-z0-9_./-]+|<[^>\r\n]{1,200}>|\\[nrt]|\r\n|\n|\r",
         RegexOptions.Compiled);
 
     private sealed record TextEnvelope(string Prefix, string Body, string Suffix);
