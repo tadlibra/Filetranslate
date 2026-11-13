@@ -32,6 +32,8 @@ public partial class Form1
         public Action? BeforeResponse;
         public bool Fail;
         public bool CorruptTokens;
+        public string? FailText;
+        public int RateLimitResponses;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
@@ -39,6 +41,13 @@ public partial class Form1
             BeforeResponse?.Invoke();
             ct.ThrowIfCancellationRequested();
             if (Fail) return new(HttpStatusCode.BadRequest);
+            if (RateLimitResponses > 0)
+            {
+                RateLimitResponses--;
+                var limited = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
+                limited.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.Zero);
+                return limited;
+            }
             if (request.Method == HttpMethod.Get)
             {
                 var query = request.RequestUri!.Query.Split('&').Single(q => q.StartsWith("q="))[2..];
@@ -51,6 +60,7 @@ public partial class Form1
             var json = prompt[(prompt.IndexOf("Input JSON array:", StringComparison.Ordinal) + "Input JSON array:".Length)..].Trim();
             var input = JsonSerializer.Deserialize<List<string>>(json)!;
             TextCount += input.Count;
+            if (FailText is not null && input.Any(t => t.Contains(FailText))) return new(HttpStatusCode.OK) { Content = new StringContent("{\"choices\":[{\"message\":{\"content\":\"not json\"}}]}") };
             var output = input.Select(t => CorruptTokens ? "BROKEN" : "VI " + t).ToList();
             return new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = JsonSerializer.Serialize(output) } } } })) };
         }
@@ -66,6 +76,7 @@ public partial class Form1
     internal static async Task RunChecksAsync(string[] args)
     {
         if (args.Length >= 2 && args[0] == "--live") { await RunLiveSampleAsync(args[1]); return; }
+        if (args.Length >= 3 && args[0] == "--pack") { await RunPackSampleAsync(args[1], args[2..]); return; }
         var root = Path.GetFullPath(Path.Combine("obj", "regression", Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(root);
         using var fake = new FakeTranslator();
@@ -145,6 +156,28 @@ public partial class Form1
         await WriteAtomicAsync(firstLang.StatePath, firstLang.StateContent, false, ct);
         var updatedLang = await form.TranslateLangGroupAsync("source-update", root, [("en_us.json", "{\"a\":\"Second\"}")], firstLang.Content, "vi_vn.json", "vi", ct);
         Check(ParseLangJson(updatedLang.Content)["a"] == "VI Second", "changed source key updates an existing machine translation");
+        fake.FailText = "Broken line";
+        var partialLang = await form.TranslateLangGroupAsync("partial", root, [("en_us.json", "{\"ok\":\"Good line\",\"bad\":\"Broken line\"}")], null, "vi_vn.json", "vi", ct);
+        var partialMap = ParseLangJson(partialLang.Content);
+        Check(partialLang.Errors == 1 && partialMap["ok"] == "VI Good line" && partialMap["bad"] == "Broken line"
+            && !partialLang.StateContent.Contains("Broken line\",\"bad", StringComparison.Ordinal), "one failed string keeps the rest of the file translated");
+        await WriteAtomicAsync(partialLang.StatePath, partialLang.StateContent, false, ct);
+        fake.FailText = null;
+        calls = fake.Calls;
+        var resumedLang = await form.TranslateLangGroupAsync("partial", root, [("en_us.json", "{\"ok\":\"Good line\",\"bad\":\"Broken line\"}")], partialLang.Content, "vi_vn.json", "vi", ct);
+        Check(resumedLang.Errors == 0 && ParseLangJson(resumedLang.Content)["bad"] == "VI Broken line" && fake.Calls == calls + 1, "rerun retries only the failed string");
+        fake.RateLimitResponses = 2;
+        var limited = await form.TranslateBatchAsync(["Rate limited text"], "vi", "auto", ct);
+        Check(limited.Errors == 0 && limited.Values[0] == "VI Rate limited text" && fake.RateLimitResponses == 0, "AI 429 waits for Retry-After and retries");
+        var aiConfig = form._aiConfig;
+        form._aiConfig = null;
+        fake.RateLimitResponses = GoogleMaxStrikes;
+        calls = fake.Calls;
+        var blocked = await form.TranslateBatchAsync(["Blocked one", "Blocked two"], "vi", "auto", ct);
+        Check(blocked.Errors == 2 && blocked.Values[1] == "Blocked two" && fake.Calls == calls + GoogleMaxStrikes, "repeated Google 429 stops further Google calls");
+        form._googleStrikes = 0;
+        Check((await form.TranslateBatchAsync(["Unblocked"], "vi", "auto", ct)).Values[0] == "VI Unblocked", "Google resumes after strike reset");
+        form._aiConfig = aiConfig;
         var manualLang = await form.TranslateLangGroupAsync("source-update", root, [("en_us.json", "{\"a\":\"Second\"}")], "{\"a\":\"Bản dịch thủ công\"}", "vi_vn.json", "vi", ct);
         Check(ParseLangJson(manualLang.Content)["a"] == "Bản dịch thủ công", "manually edited target preserved");
 
@@ -210,6 +243,43 @@ public partial class Form1
         Console.WriteLine($"PASS: {_checks} regression checks. Fixtures: {root}");
 
         if (args.Length > 0) await form.AuditPackAsync(args[0], root, ct);
+    }
+
+    // Copies the named mod jars into a scratch instance, runs a real translation (Google or the user's AI config)
+    // and reports how many source lang keys got a target-language value. The source instance is never written.
+    private static async Task RunPackSampleAsync(string sourceInstance, string[] jarNames)
+    {
+        using var form = new Form1(new HttpClient { Timeout = TimeSpan.FromSeconds(60) });
+        SynchronizationContext.SetSynchronizationContext(null);
+        form._aiConfig = LoadAiTranslatorConfig();
+        var root = Path.GetFullPath(Path.Combine("obj", "pack-sample", Guid.NewGuid().ToString("N")));
+        Directory.CreateDirectory(Path.Combine(root, "mods"));
+        foreach (var name in jarNames) File.Copy(Path.Combine(sourceInstance, "mods", name), Path.Combine(root, "mods", name));
+        Console.WriteLine($"Pack sample: {root} ({(form._aiConfig is null ? "Google" : form._aiConfig.Provider.ToString())})");
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        await form.RunTranslateAsync(root, "vi", "vi_vn", CancellationToken.None);
+        Console.WriteLine($"Run: {watch.Elapsed:mm\\:ss}, errors {form._errorCount}");
+        foreach (var group in form._coverage.ToArray().GroupBy(e => e.Status))
+            Console.WriteLine($"  {group.Key}: {group.Count()} entries, {group.Sum(e => e.Strings)} strings, {group.Sum(e => e.Unchanged)} unchanged");
+        foreach (var e in form._coverage.ToArray().Where(e => e.Status is "error" or "translation-errors").Take(10))
+            Console.WriteLine($"  ! {e.Source}: {e.Detail}");
+        foreach (var name in jarNames)
+        {
+            using var zip = ZipFile.OpenRead(Path.Combine(root, "mods", name));
+            var source = 0; var target = 0; var same = 0;
+            foreach (var entry in zip.Entries.Where(e => LangOutputRelative(e.FullName, "vi_vn") is not null && e.FullName.Contains("/en_us.", StringComparison.OrdinalIgnoreCase)))
+            {
+                using var reader = new StreamReader(entry.Open());
+                var src = ParseLangJson(await reader.ReadToEndAsync());
+                var outEntry = zip.GetEntry(LangOutputRelative(entry.FullName, "vi_vn")!);
+                Dictionary<string, string> vi = [];
+                if (outEntry is not null) { using var r2 = new StreamReader(outEntry.Open()); vi = ParseLangJson(await r2.ReadToEndAsync()); }
+                source += src.Count;
+                target += src.Keys.Count(vi.ContainsKey);
+                same += src.Count(p => vi.TryGetValue(p.Key, out var v) && v == p.Value && form.IsTranslatable(p.Value));
+            }
+            Console.WriteLine($"  {name}: {target}/{source} keys written, {same} still English");
+        }
     }
 
     private static async Task RunLiveSampleAsync(string sourceInstance)
